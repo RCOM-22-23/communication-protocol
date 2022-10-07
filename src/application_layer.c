@@ -38,16 +38,23 @@ LinkLayer getConnectionParams(const char *serialPort, const char *role, int baud
 }
 
 debugType executeLinkLayer(LinkLayer connectionParamenters){
+
+    //<------llopen()------>
     if(llopen(connectionParamenters) == 1){
         if(connectionParamenters.role == LlRx)
             printf("Established Connection with transmitter\n");
         else if(connectionParamenters.role == LlTx)
             printf("Established Connection with reader\n");
-
     }
     else{
         return(ConnectionError);
     }
+    //<------llopen() end------>
+
+    //<------llopen()------>
+        llclose(0);
+    //<------llopen() close------>
+
 
     return OK;
 }
