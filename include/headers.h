@@ -30,6 +30,9 @@ volatile int STOP = FALSE;
 //END & START FLAG
 #define F 0x7E
 
+//ESCAPE
+#define ESC 0x7D
+
 //ADRESS FIELD
 // --A_W is for commands sent by the writer and responses sent by the Reader.
 #define A_W 0x03
