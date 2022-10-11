@@ -256,7 +256,7 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
     
     unsigned int Length = *length;
 
-    stuffedFrame[0] = F;
+    stuffed_frame[0] = F;
 
     int j = 1;
 
@@ -265,7 +265,7 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
             Length++;
             stuffed_frame = (unsigned char *) realloc(stuffed_frame, Length);
             stuffed_frame[j] = ESC;
-            stuffed_frame[++j] = Ox5E;
+            stuffed_frame[++j] = 0x5E;
             j++;
             continue;    
         }
@@ -278,7 +278,7 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
             continue;
         }
         else{
-            stuffedframe[j] = frame[i];
+            stuffed_frame[j] = frame[i];
             j++;
         }
     }
@@ -287,7 +287,7 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
     *length = Length;
 
 
-   return stuffedFrame;
+   return stuffed_frame;
 }
 
 //Destuffing of the frame I
@@ -305,7 +305,7 @@ unsigned char *byte_Destuffing(unsigned char *stuffed_frame, unsigned int *lengt
            continue;
         }
 
-        else if(stuffed_frame[i] == ESC && stuffed_frame[i+1] = 0x5D){
+        else if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5D){
            Length++; 
            destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
            destuffed_frame[Length-1] = ESC;
