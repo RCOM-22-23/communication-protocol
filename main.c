@@ -10,6 +10,7 @@
 #define N_TRIES 3
 #define TIMEOUT 4
 
+
 // Arguments:
 //   $1: /dev/ttySxx
 //   $2: tx | rx

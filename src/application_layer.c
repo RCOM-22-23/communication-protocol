@@ -1,15 +1,10 @@
 // Application layer protocol implementation
 
+#include "applicationLayer_headers.h"
 #include "application_layer.h"
 #include "link_layer.h"
 #include "headers.h"
-#include "applicationLayer_headers.h"
 
-typedef enum
-{
-    OK,
-    ConnectionError,
-} debugType;
 
 
 LinkLayerRole getRole(const char *role){
@@ -22,7 +17,7 @@ LinkLayerRole getRole(const char *role){
     exit(-1);
 }
 
-LinkLayer getConnectionParams(const char *serialPort, const char *role, int baudRate,int nTries, int timeout, const char *filename){
+LinkLayer getConnectionParams(const char *serialPort, const char *role, int baudRate,int nTries, int timeout){
     LinkLayer connectionParameters;
 
     LinkLayerRole appRole = getRole(role);
@@ -35,13 +30,13 @@ LinkLayer getConnectionParams(const char *serialPort, const char *role, int baud
     return connectionParameters;
 }
 
-debugType executeLinkLayer(LinkLayer connectionParamenters){
+debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int packet_number){
 
     //<------llopen()------>
-    if(llopen(connectionParamenters) == 1){
-        if(connectionParamenters.role == LlRx)
+    if(llopen(connectionParameters) == 1){
+        if(connectionParameters.role == LlRx)
             printf("Established Connection with transmitter\n");
-        else if(connectionParamenters.role == LlTx)
+        else if(connectionParameters.role == LlTx)
             printf("Established Connection with reader\n");
     }
     else{
@@ -53,6 +48,10 @@ debugType executeLinkLayer(LinkLayer connectionParamenters){
 
     //<------llwrite() end------>
 
+    //<------llread()------>
+
+    //<------llread() end------>
+
     //<------llclose()------>
         llclose(0);
     //<------llclose() end------>
@@ -61,15 +60,104 @@ debugType executeLinkLayer(LinkLayer connectionParamenters){
     return OK;
 }
 
+debugType readAndPackage(Packets *packets, int *packet_number, int *maxPackets,const char *filename){
 
-void applicationLayer(const char *serialPort, const char *role, int baudRate,
-                      int nTries, int timeout, const char *filename)
+    //<------Opening File BEGIN------>
+    FILE *file;
+    file = fopen(filename,"rb");
+
+    if(file == NULL){
+        return FileError;
+    }
+    //<------Opening File END------>
+
+    printf("DIE 1\n");
+
+    //<------Reading File BEGIN------>
+    size_t len;
+    while((len = fread(packets[*packet_number].content,sizeof(unsigned int),PACKET_SIZE,file)) != 0){
+        packets[*packet_number].size = len;
+        (*packet_number)++;
+        if(*(packet_number) >= *(maxPackets)){
+            *(maxPackets) += 10;
+            packets = (Packets *) realloc(packets, *(maxPackets));
+        }
+            
+    }
+    //<------Reading File BEGIN------>
+
+    //<------Closing File BEGIN------>
+    fclose(file);
+    //<------Closing File END------>
+
+    return OK;
+}
+
+debugType writePackage(const Packets *packets,int packet_number,const char *filename){
+
+    if(packet_number == 0){
+        return NoPacketsError;
+    }
+
+    FILE *file = fopen(filename,"wb");
+
+    if(file == NULL){
+        return FileError;
+    }
+
+    for(int i = 0; i < packet_number; i++){
+        fwrite(packets[i].content,sizeof(unsigned int),packets[i].size,file);
+    }
+
+    fclose(file);
+
+    return OK;
+}
+
+
+void print_packets(const Packets *packets,int packet_number){
+    printf("Packet number: %d\n", packet_number);
+    for(int i = 0; i < packet_number; i++){
+        printf("PACKET %d SIZE : %ld\n",i,packets[i].size);
+        printf("    ");
+        for(int j = 0; j < packets[i].size; j++){
+            printf("%X ",packets[i].content[j]);
+        }
+        printf("\n");
+    }
+}
+
+void applicationLayer(const char *serialPort, const char *role, int baudRate,int nTries, int timeout, const char *filename)
 {
+    //TODO : change to dynamic array
+    int maxPackets = MAX_PACKETS;
+    Packets *packets = (Packets *) malloc(sizeof(Packets)*maxPackets);
+    int packet_number = 0;
+
     //Setting connection params from main
-    LinkLayer connectionParameters = getConnectionParams(serialPort,role,baudRate,nTries,timeout,filename);
+    LinkLayer connectionParameters = getConnectionParams(serialPort,role,baudRate,nTries,timeout);
+
+    //Reading from file, if role is transmitter
+    if(connectionParameters.role == LlTx){
+        switch (readAndPackage(packets, &packet_number, &maxPackets,filename))
+        {
+        case FileError:
+            printf("Could not read from file \"%s\", closing application\n",filename);
+            exit(-1);
+            break;
+        default:
+            printf("Read from file  \"%s\" successfully\n",filename);
+            break;
+        }
+    }
+
+    /*
+    print_packets(packets,packet_number);
+    writePackage(packets,packet_number,"output.gif");
+    */
 
     //execute linklayer code, with error handling
-    switch (executeLinkLayer(connectionParameters))
+    switch (executeLinkLayer(connectionParameters, packets, packet_number))
     {
     case ConnectionError:
         printf("Could not establish connection with the other program, closing application\n");
@@ -78,4 +166,24 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,
     default:
         break;
     }
+
+    //Writing to file, if role is receiver
+    if(connectionParameters.role == LlRx){
+        switch (writePackage(packets,packet_number,filename))
+        {
+        case NoPacketsError:
+            printf("No packets are stored, closing application\n");
+            exit(-1);
+            break;
+        case FileError:
+            printf("Could not write to file \"%s\", closing application\n",filename);
+            exit(-1);
+            break;
+        default:
+            printf("Wrote to the file \"%s\" successfully\n",filename);
+            break;
+        }
+    }
+
+    free(packets);
 }

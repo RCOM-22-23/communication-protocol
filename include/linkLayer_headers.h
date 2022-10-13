@@ -1,3 +1,7 @@
+#ifndef _LINK_HEADERS_H_
+#define _LINK_HEADERS_H_
+
+
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -81,3 +85,5 @@ struct termios newtio;
 int attempts;
 int timeout; 
 //<----------GLOBAL VARIABLES END---------->
+
+#endif // _LINK_HEADERS_H_
