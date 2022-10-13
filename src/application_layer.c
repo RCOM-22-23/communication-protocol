@@ -2,10 +2,8 @@
 
 #include "application_layer.h"
 #include "link_layer.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "headers.h"
+#include "applicationLayer_headers.h"
 
 typedef enum
 {
