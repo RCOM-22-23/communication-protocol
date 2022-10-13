@@ -128,18 +128,29 @@ void send_UA(){
     printf("Sent UA to transmitter\n");
 }
 
+void alarm_UA(int signal){
+    alarmEnabled = FALSE;
+    alarmCount++;
+}
 
 void send_SET(){
     write(fd, set, CONTROL_FRAME_SIZE);
     printf("SET sent to receiver \n");
 }
 
+
 int receive_UA(){
     //small buffer for reading from serial port
     unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_UA);
+    alarm(timeout);
 
     int state = START;
     while(state != STOP){
+        if(alarmEnabled == FALSE)
+            return FALSE;
         int bytes = read(fd, buf, 1);
         unsigned char read_char = buf[0];
         if(bytes != 0){
@@ -168,24 +179,14 @@ int receive_UA(){
                     break;
             }
         }
-        else{
-            return FALSE;
-        } 
     }
     return TRUE;
 }
 
 // Alarm function handler
-void connectionAttempt(int signal)
+void connectionAttempt()
 {
-    alarmEnabled = FALSE;
-    alarmCount++;
-
     send_SET();
-
-    // Wait until all bytes have been written to the serial port
-    // TODO : Keep or remove ? 
-    sleep(1);
 
     if(receive_UA() == TRUE){
         ua_received = TRUE;
@@ -198,16 +199,10 @@ void connectionAttempt(int signal)
 
 int llopen_transmitter(LinkLayer connectionParameters){
     timeout = connectionParameters.timeout;
-    // Set alarm function handler
-    (void)signal(SIGALRM, connectionAttempt);
 
     while (alarmCount < attempts && ua_received == FALSE)
     {
-        if (alarmEnabled == FALSE)
-        {
-            alarm(connectionParameters.timeout); // Set alarm to be triggered in <connectionParameters.timeout> seconds
-            alarmEnabled = TRUE;
-        }
+        connectionAttempt();
     }
 
     if(ua_received == TRUE){

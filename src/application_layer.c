@@ -49,9 +49,13 @@ debugType executeLinkLayer(LinkLayer connectionParamenters){
     }
     //<------llopen() end------>
 
-    //<------llopen()------>
+    //<------llwrite()------>
+
+    //<------llwrite() end------>
+
+    //<------llclose()------>
         llclose(0);
-    //<------llopen() close------>
+    //<------llclose() end------>
 
 
     return OK;
