@@ -46,14 +46,26 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
 
     //<------llwrite()------>
 
+    //TODO : WRITE TO SERIAL PORT FROM PACKETS STRUCT
+
     //<------llwrite() end------>
 
     //<------llread()------>
 
+    //TODO : WRITE FROM SERIAL PORT FROM PACKETS STRUCT
+
     //<------llread() end------>
 
     //<------llclose()------>
-        llclose(0);
+    if(llclose(FALSE) == 1){
+        if(connectionParameters.role == LlRx)
+            printf("Disconnection from transmitter successful\n");
+        else if(connectionParameters.role == LlTx)
+            printf("Disconnection from Receiver successful\n");
+    }
+    else{
+        return(ConnectionError);
+    }
     //<------llclose() end------>
 
 
@@ -70,8 +82,6 @@ debugType readAndPackage(Packets *packets, int *packet_number, int *maxPackets,c
         return FileError;
     }
     //<------Opening File END------>
-
-    printf("DIE 1\n");
 
     //<------Reading File BEGIN------>
     size_t len;
@@ -99,17 +109,23 @@ debugType writePackage(const Packets *packets,int packet_number,const char *file
         return NoPacketsError;
     }
 
+    //<------Opening File BEGIN------>
     FILE *file = fopen(filename,"wb");
 
     if(file == NULL){
         return FileError;
     }
+    //<------Opening File END------>
 
+    //<------Writing File BEGIN------>
     for(int i = 0; i < packet_number; i++){
         fwrite(packets[i].content,sizeof(unsigned int),packets[i].size,file);
     }
+    //<------Writing File END------>
 
+    //<------Closing File BEGIN------>
     fclose(file);
+    //<------Closing File BEGIN------>
 
     return OK;
 }
@@ -141,13 +157,13 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
     if(connectionParameters.role == LlTx){
         switch (readAndPackage(packets, &packet_number, &maxPackets,filename))
         {
-        case FileError:
-            printf("Could not read from file \"%s\", closing application\n",filename);
-            exit(-1);
-            break;
-        default:
-            printf("Read from file  \"%s\" successfully\n",filename);
-            break;
+            case FileError:
+                printf("Could not read from file \"%s\", closing application\n",filename);
+                exit(-1);
+                break;
+            default:
+                printf("Read from file  \"%s\" successfully\n",filename);
+                break;
         }
     }
 
@@ -159,29 +175,29 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
     //execute linklayer code, with error handling
     switch (executeLinkLayer(connectionParameters, packets, packet_number))
     {
-    case ConnectionError:
-        printf("Could not establish connection with the other program, closing application\n");
-        exit(-1);
-        break;
-    default:
-        break;
+        case ConnectionError:
+            printf("Could not establish connection with the other program, closing application\n");
+            exit(-1);
+            break;
+        default:
+            break;
     }
 
     //Writing to file, if role is receiver
     if(connectionParameters.role == LlRx){
         switch (writePackage(packets,packet_number,filename))
         {
-        case NoPacketsError:
-            printf("No packets are stored, closing application\n");
-            exit(-1);
-            break;
-        case FileError:
-            printf("Could not write to file \"%s\", closing application\n",filename);
-            exit(-1);
-            break;
-        default:
-            printf("Wrote to the file \"%s\" successfully\n",filename);
-            break;
+            case NoPacketsError:
+                printf("No packets are stored, closing application\n");
+                exit(-1);
+                break;
+            case FileError:
+                printf("Could not write to file \"%s\", closing application\n",filename);
+                exit(-1);
+                break;
+            default:
+                printf("Wrote to the file \"%s\" successfully\n",filename);
+                break;
         }
     }
 

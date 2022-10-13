@@ -8,6 +8,85 @@
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
+
+
+//Byte Stuffing of the frame I
+unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
+    unsigned char *stuffed_frame = (unsigned char*) malloc((*length)*sizeof(char));
+    
+    unsigned int Length = *length;
+
+    stuffed_frame[0] = F;
+
+    int j = 1;
+
+    for(int i = 0; i < *length; i++){
+        if(frame[i] == F){
+            Length++;
+            stuffed_frame = (unsigned char *) realloc(stuffed_frame, Length);
+            stuffed_frame[j] = ESC;
+            stuffed_frame[++j] = 0x5E;
+            j++;
+            continue;    
+        }
+        else if(frame[i] == ESC){
+            Length++;
+            stuffed_frame = (unsigned char*) realloc(stuffed_frame, Length);
+            stuffed_frame[j] = ESC;
+            stuffed_frame[++j] = 0x5D;
+            j++;
+            continue;
+        }
+        else{
+            stuffed_frame[j] = frame[i];
+            j++;
+        }
+    }
+    
+    stuffed_frame[j] = F;
+    *length = Length;
+
+
+   return stuffed_frame;
+}
+
+//Destuffing of the frame I
+unsigned char *byte_Destuffing(unsigned char *stuffed_frame, unsigned int *length){
+
+    unsigned int Length = 0;
+    unsigned char *destuffed_frame = malloc(Length);
+
+    for(int i = 0; i < *length; i++){
+        if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5E){
+           Length++; 
+           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
+           destuffed_frame[Length-1] = F;
+           i++;
+           continue;
+        }
+
+        else if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5D){
+           Length++; 
+           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
+           destuffed_frame[Length-1] = ESC;
+           i++;
+           continue;
+        }
+        else{
+           Length++; 
+           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
+           destuffed_frame[Length-1] = stuffed_frame[i];
+
+        }
+    }
+   
+   *length = Length;
+
+  
+  return destuffed_frame;
+}
+
+
 void openSerialPort(LinkLayer connectionParameters){
     // Open serial port device for reading and writing and not as controlling tty
     // because we don't want to get killed if linenoise sends CTRL-C.
@@ -96,7 +175,7 @@ int read_SET(LinkLayer connectionParameters){
                         state = START;
                     break;
                 case FLAG_RCV:
-                    if(!(check_state(read_char,A_W,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                    if(!(check_state(read_char,A_T,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case A_RCV:
@@ -231,7 +310,7 @@ int llopen_reader(LinkLayer connectionParameters){
 int llopen(LinkLayer connectionParameters){
     openSerialPort(connectionParameters);
     attempts = connectionParameters.nRetransmissions;
-
+    role = connectionParameters.role;
 
     if(connectionParameters.role == LlRx){
         return llopen_reader(connectionParameters);
@@ -245,85 +324,6 @@ int llopen(LinkLayer connectionParameters){
        
     return -1;
 }
-
-
-//Byte Stuffing of the frame I
-unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
-    unsigned char *stuffed_frame = (unsigned char*) malloc((*length)*sizeof(char));
-    
-    unsigned int Length = *length;
-
-    stuffed_frame[0] = F;
-
-    int j = 1;
-
-    for(int i = 0; i < *length; i++){
-        if(frame[i] == F){
-            Length++;
-            stuffed_frame = (unsigned char *) realloc(stuffed_frame, Length);
-            stuffed_frame[j] = ESC;
-            stuffed_frame[++j] = 0x5E;
-            j++;
-            continue;    
-        }
-        else if(frame[i] == ESC){
-            Length++;
-            stuffed_frame = (unsigned char*) realloc(stuffed_frame, Length);
-            stuffed_frame[j] = ESC;
-            stuffed_frame[++j] = 0x5D;
-            j++;
-            continue;
-        }
-        else{
-            stuffed_frame[j] = frame[i];
-            j++;
-        }
-    }
-    
-    stuffed_frame[j] = F;
-    *length = Length;
-
-
-   return stuffed_frame;
-}
-
-//Destuffing of the frame I
-unsigned char *byte_Destuffing(unsigned char *stuffed_frame, unsigned int *length){
-
-    unsigned int Length = 0;
-    unsigned char *destuffed_frame = malloc(Length);
-
-    for(int i = 0; i < *length; i++){
-        if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5E){
-           Length++; 
-           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
-           destuffed_frame[Length-1] = F;
-           i++;
-           continue;
-        }
-
-        else if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5D){
-           Length++; 
-           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
-           destuffed_frame[Length-1] = ESC;
-           i++;
-           continue;
-        }
-        else{
-           Length++; 
-           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
-           destuffed_frame[Length-1] = stuffed_frame[i];
-
-        }
-    }
-   
-   *length = Length;
-
-  
-  return destuffed_frame;
-}
-
-
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
@@ -348,8 +348,8 @@ int llread(unsigned char *packet){
 ////////////////////////////////////////////////
 // LLCLOSE
 ////////////////////////////////////////////////
-int llclose(int showStatistics)
-{
+
+void close_SerialPort(){
     // Restore the old port settings
     if (tcsetattr(fd, TCSANOW, &oldtio) == -1){
         perror("tcsetattr");
@@ -357,6 +357,103 @@ int llclose(int showStatistics)
     }
 
     close(fd);
+}
 
-    return 1;
+void send_DISC(){
+    if(role == LlTx){
+        write(fd, disc_T, CONTROL_FRAME_SIZE);
+        printf("DISC sent to receiver\n");
+    }
+    else if(role == LlRx){
+        write(fd, disc_R, CONTROL_FRAME_SIZE);
+        printf("DISC sent to transmitter\n");
+    }   
+}
+
+void alarm_DISC_T(int signal){
+    alarmEnabled = FALSE;
+    alarmCount++;
+}
+
+int receive_DISC_R(){
+    //small buffer for reading from serial port
+    unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_DISC_T);
+    alarm(timeout);
+
+    int state = START;
+    while(state != STOP){
+        if(alarmEnabled == FALSE)
+            return FALSE;
+        int bytes = read(fd, buf, 1);
+        unsigned char read_char = buf[0];
+        if(bytes != 0){
+            switch(state){
+                case START:
+                    if(!check_state(read_char,F,FLAG_RCV,&state))
+                        state = START;
+                    break;
+                case FLAG_RCV:
+                    if(!(check_state(read_char,A_R,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case A_RCV:
+                    if(!(check_state(read_char,DISC,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case C_RCV:
+                    if(!(check_state(read_char,BCC1_DISC_T,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case BCC_OK:
+                    if(!check_state(read_char,F,STOP,&state))
+                        state = START;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return TRUE;
+}
+
+void disconnectionAttempt(){
+    send_DISC();
+    if(receive_DISC_R() == TRUE){
+        disc_received_R = TRUE;
+    }
+    else{
+        printf("disconnection Failed, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+    }
+}
+
+int llclose(int showStatistics)
+{
+    alarmEnabled = FALSE;
+    alarmCount = 0;
+
+    //Transmitter
+    if(role == LlTx){
+        while (alarmCount < attempts && disc_received_R == FALSE)
+        {
+            disconnectionAttempt();
+        }
+        if(disc_received_R == TRUE){
+            return 1;
+            close_SerialPort();
+        }
+        else{
+            return -1;
+        }
+    }
+    //Receiver
+    else if(role == LlRx){
+        send_DISC();
+        return 1;
+        close_SerialPort();
+    }
+        
+    return -1;
 }

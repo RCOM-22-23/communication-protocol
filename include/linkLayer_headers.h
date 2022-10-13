@@ -31,10 +31,10 @@ volatile int STOP = FALSE;
 //ESCAPE
 #define ESC 0x7D
 
-//ADRESS FIELD
-// --A_W is for commands sent by the writer and responses sent by the Reader.
-#define A_W 0x03
-// --A_R is for commands sent by the Reader and responses sent by the Writer.
+//ADDRESS FIELD
+// --A_T is for commands sent by the transmitter and responses sent by the Reader.
+#define A_T 0x03
+// --A_R is for commands sent by the Reader and responses sent by the transmitter.
 #define A_R 0x01
 
 //CONTROL FIELD
@@ -42,8 +42,12 @@ volatile int STOP = FALSE;
 #define DISC 0x0B
 #define UA 0x07
 
-#define BCC1_SET A_W^SET
+#define BCC1_SET A_T^SET
 #define BCC1_UA A_R^UA
+
+#define BCC1_DISC_T A_T^DISC
+#define BCC1_DISC_R A_R^DISC
+
 
 //<----------FRAMES END---------->
 
@@ -65,10 +69,16 @@ volatile int STOP = FALSE;
 //<----------GLOBAL VARIABLES---------->
 
 //SET format
-unsigned char set[CONTROL_FRAME_SIZE] = {F,A_W,SET,BCC1_SET,F};
+unsigned char set[CONTROL_FRAME_SIZE] = {F,A_T,SET,BCC1_SET,F};
 
 //UA format
 unsigned char ua[CONTROL_FRAME_SIZE] = {F,A_R,UA,BCC1_UA,F};
+
+//DISC format
+unsigned char disc_T[CONTROL_FRAME_SIZE] = {F,A_T,DISC,BCC1_DISC_T,F};
+
+unsigned char disc_R[CONTROL_FRAME_SIZE] = {F,A_R,DISC,BCC1_DISC_R,F};
+
 
 //global serial port descriptor
 int fd;
@@ -78,12 +88,16 @@ int alarmEnabled = FALSE;
 int alarmCount = 0;
 int ua_received = FALSE;
 int set_received = FALSE;
+int disc_received_R = FALSE;
+int disc_received_T = FALSE;
+
 
 struct termios oldtio;
 struct termios newtio;
 
 int attempts;
-int timeout; 
+int timeout;
+LinkLayerRole role;
 //<----------GLOBAL VARIABLES END---------->
 
 #endif // _LINK_HEADERS_H_
