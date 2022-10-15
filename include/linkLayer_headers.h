@@ -43,7 +43,8 @@ volatile int STOP = FALSE;
 #define UA 0x07
 
 #define BCC1_SET A_T^SET
-#define BCC1_UA A_R^UA
+#define BCC1_UA_R A_R^UA
+#define BCC1_UA_T A_T^UA
 
 #define BCC1_DISC_T A_T^DISC
 #define BCC1_DISC_R A_R^DISC
@@ -72,7 +73,9 @@ volatile int STOP = FALSE;
 unsigned char set[CONTROL_FRAME_SIZE] = {F,A_T,SET,BCC1_SET,F};
 
 //UA format
-unsigned char ua[CONTROL_FRAME_SIZE] = {F,A_R,UA,BCC1_UA,F};
+unsigned char ua_R[CONTROL_FRAME_SIZE] = {F,A_R,UA,BCC1_UA_R,F};
+
+unsigned char ua_T[CONTROL_FRAME_SIZE] = {F,A_T,UA,BCC1_UA_T,F};
 
 //DISC format
 unsigned char disc_T[CONTROL_FRAME_SIZE] = {F,A_T,DISC,BCC1_DISC_T,F};
@@ -86,10 +89,12 @@ int fd;
 //Alarm and timeout variables
 int alarmEnabled = FALSE;
 int alarmCount = 0;
-int ua_received = FALSE;
+int ua_R_received = FALSE;
+int ua_T_received = FALSE;
 int set_received = FALSE;
 int disc_received_R = FALSE;
 int disc_received_T = FALSE;
+
 
 
 struct termios oldtio;

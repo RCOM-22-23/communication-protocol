@@ -202,9 +202,14 @@ int read_SET(LinkLayer connectionParameters){
     return set_received;
 }
 
-void send_UA(){
-    write(fd, ua, CONTROL_FRAME_SIZE);
+void send_UA_R(){
+    write(fd, ua_R, CONTROL_FRAME_SIZE);
     printf("Sent UA to transmitter\n");
+}
+
+void send_UA_T(){
+    write(fd, ua_T, CONTROL_FRAME_SIZE);
+    printf("Sent UA to receiver\n");
 }
 
 void alarm_UA(int signal){
@@ -218,7 +223,7 @@ void send_SET(){
 }
 
 
-int receive_UA(){
+int receive_UA_R(){
     //small buffer for reading from serial port
     unsigned char buf[2];
     alarmEnabled = TRUE;
@@ -247,7 +252,7 @@ int receive_UA(){
                         state = START;
                     break;
                 case C_RCV:
-                    if(!(check_state(read_char,BCC1_UA,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                    if(!(check_state(read_char,BCC1_UA_R,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case BCC_OK:
@@ -262,13 +267,58 @@ int receive_UA(){
     return TRUE;
 }
 
+int receive_UA_T(){
+    //small buffer for reading from serial port
+    unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_UA);
+    alarm(timeout);
+
+    int state = START;
+    while(state != STOP){
+        if(alarmEnabled == FALSE)
+            return FALSE;
+        int bytes = read(fd, buf, 1);
+        unsigned char read_char = buf[0];
+        if(bytes != 0){
+            switch(state){
+                case START:
+                    if(!check_state(read_char,F,FLAG_RCV,&state))
+                        state = START;
+                    break;
+                case FLAG_RCV:
+                    if(!(check_state(read_char,A_T,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case A_RCV:
+                    if(!(check_state(read_char,UA,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case C_RCV:
+                    if(!(check_state(read_char,BCC1_UA_T,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case BCC_OK:
+                    if(!check_state(read_char,F,STOP,&state))
+                        state = START;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return TRUE;
+}
+
+
 // Alarm function handler
 void connectionAttempt()
 {
     send_SET();
 
-    if(receive_UA() == TRUE){
-        ua_received = TRUE;
+    if(receive_UA_R() == TRUE){
+        ua_R_received = TRUE;
     }
     else{
         printf("Connection Failed, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
@@ -279,12 +329,12 @@ void connectionAttempt()
 int llopen_transmitter(LinkLayer connectionParameters){
     timeout = connectionParameters.timeout;
 
-    while (alarmCount < attempts && ua_received == FALSE)
+    while (alarmCount < attempts && ua_R_received == FALSE)
     {
         connectionAttempt();
     }
 
-    if(ua_received == TRUE){
+    if(ua_R_received == TRUE){
         alarmEnabled = FALSE;
         alarmCount = 0;
         return 1;
@@ -296,7 +346,7 @@ int llopen_transmitter(LinkLayer connectionParameters){
 
 int llopen_reader(LinkLayer connectionParameters){
     if(read_SET(connectionParameters) == TRUE){
-        send_UA();
+        send_UA_R();
         return 1; 
     }
     
@@ -370,7 +420,7 @@ void send_DISC(){
     }   
 }
 
-void alarm_DISC_T(int signal){
+void alarm_DISC(int signal){
     alarmEnabled = FALSE;
     alarmCount++;
 }
@@ -380,7 +430,7 @@ int receive_DISC_R(){
     unsigned char buf[2];
     alarmEnabled = TRUE;
 
-    (void)signal(SIGALRM, alarm_DISC_T);
+    (void)signal(SIGALRM, alarm_DISC);
     alarm(timeout);
 
     int state = START;
@@ -419,13 +469,76 @@ int receive_DISC_R(){
     return TRUE;
 }
 
-void disconnectionAttempt(){
-    send_DISC();
+
+int receive_DISC_T(){
+    //small buffer for reading from serial port
+    unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_DISC);
+    alarm(timeout);
+
+    int state = START;
+    while(state != STOP){
+        if(alarmEnabled == FALSE)
+            return FALSE;
+        int bytes = read(fd, buf, 1);
+        unsigned char read_char = buf[0];
+        if(bytes != 0){
+            switch(state){
+                case START:
+                    if(!check_state(read_char,F,FLAG_RCV,&state))
+                        state = START;
+                    break;
+                case FLAG_RCV:
+                    if(!(check_state(read_char,A_T,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case A_RCV:
+                    if(!(check_state(read_char,DISC,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case C_RCV:
+                    if(!(check_state(read_char,BCC1_DISC_T,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case BCC_OK:
+                    if(!check_state(read_char,F,STOP,&state))
+                        state = START;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return TRUE;
+}
+
+
+void disconnectionAttempt_T(){
     if(receive_DISC_R() == TRUE){
         disc_received_R = TRUE;
     }
     else{
-        printf("disconnection Failed, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+        printf("Could not read DISC, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+    }
+}
+
+void disconnectionAttempt_R_1(){
+    if(receive_DISC_T() == TRUE){
+        disc_received_T = TRUE;
+    }
+    else{
+        printf("Could not read DISC, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+    }
+}
+
+void disconnectionAttempt_R_2(){
+    if(receive_UA_T() == TRUE){
+        ua_T_received = TRUE;
+    }
+    else{
+        printf("Could not read UA, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
     }
 }
 
@@ -436,23 +549,50 @@ int llclose(int showStatistics)
 
     //Transmitter
     if(role == LlTx){
+        send_DISC();
         while (alarmCount < attempts && disc_received_R == FALSE)
         {
-            disconnectionAttempt();
+            //Send and wait for DISC from other program
+            disconnectionAttempt_T();
         }
         if(disc_received_R == TRUE){
-            return 1;
+            //Received disc from transmitter
+            send_UA_T();
             close_SerialPort();
+            return 1;
         }
         else{
+            //Did not receive DISC from transmitter
             return -1;
         }
     }
     //Receiver
     else if(role == LlRx){
-        send_DISC();
-        return 1;
-        close_SerialPort();
+        while (alarmCount < attempts && disc_received_T == FALSE)
+        {
+            //Wait for disc from other program
+            disconnectionAttempt_R_1();
+        }
+        if(disc_received_T == TRUE){
+            //Received disc from transmitter
+
+            printf("Received DISC from transmitter\n");
+            alarmEnabled = FALSE;
+            alarmCount = 0;
+            send_DISC();
+
+            //Read UA
+            while (alarmCount < attempts && ua_T_received == FALSE)
+            {
+                //Wait for UA from other program
+                disconnectionAttempt_R_2();
+            }
+            if(ua_T_received == TRUE){
+                printf("Received UA from transmitter\n");
+                close_SerialPort();
+                return 1;
+            }
+        }
     }
         
     return -1;
