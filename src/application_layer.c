@@ -61,10 +61,10 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
         if(connectionParameters.role == LlRx)
             printf("Disconnection from transmitter successful\n");
         else if(connectionParameters.role == LlTx)
-            printf("Disconnection from Receiver successful\n");
+            printf("Disconnection from receiver successful\n");
     }
     else{
-        return(ConnectionError);
+        return(DisconnectionError);
     }
     //<------llclose() end------>
 
@@ -177,6 +177,10 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
     {
         case ConnectionError:
             printf("Could not establish connection with the other program, closing application\n");
+            exit(-1);
+            break;
+        case DisconnectionError:
+            printf("Could not disconnect from the other machine, closing application\n");
             exit(-1);
             break;
         default:

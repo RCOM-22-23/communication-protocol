@@ -404,7 +404,7 @@ int receive_DISC_R(){
                         state = START;
                     break;
                 case C_RCV:
-                    if(!(check_state(read_char,BCC1_DISC_T,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                    if(!(check_state(read_char,BCC1_DISC_R,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case BCC_OK:

@@ -11,6 +11,7 @@ typedef enum
     ConnectionError,
     FileError,
     NoPacketsError,
+    DisconnectionError,
 } debugType;
 
 struct Packets
