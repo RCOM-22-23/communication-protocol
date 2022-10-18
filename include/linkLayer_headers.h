@@ -49,6 +49,17 @@ volatile int STOP = FALSE;
 #define BCC1_DISC_T A_T^DISC
 #define BCC1_DISC_R A_R^DISC
 
+// I FRAMES
+#define CONTROLO_0 0x00
+#define CONTROLO_1 0x40
+
+//RESPONDES TO I FRAMES
+
+#define RR_CONTROLO_0 0x05
+#define RR_CONTROLO_1 0x85
+#define REJ_CONTROLO_0 0x01
+#define REJ_CONTROLO_1 0x81
+
 
 //<----------FRAMES END---------->
 
