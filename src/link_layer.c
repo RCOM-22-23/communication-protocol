@@ -379,7 +379,47 @@ int llopen(LinkLayer connectionParameters){
 ////////////////////////////////////////////////
 int llwrite(const unsigned char *buf, int bufSize){
    
+ unsigned int size_frameI = bufSize + 6;
+ unsigned char frameI[size_frameI];
+ unsigned char bcc2 = 0x00;
 
+ frameI[0] = F;
+ frameI[1] = A_T;
+
+ if() //duvida 
+
+
+
+ frameI[3] = frameI[1] ^ frameI[2];
+
+ 
+ for(int i = 0; i < bufSize; i++){
+    frameI[i+4] = buf[i];
+    bcc2 = bcc2 ^ buf[i];
+ }
+ 
+ frameI[size_frameI - 2] = bcc2;
+ frameI[size_frameI - 1] = F;
+
+ unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
+ 
+  int bytes = write(fd,stuffed,size_frameI);
+  printf("sent I frame\n");
+
+  alarm(timeout);
+
+
+   if(number_seq == 0){
+
+   }
+   else if(number_seq == 1){
+     receive_RR()
+   }
+
+
+
+    return bytes;
+}
     
        
  
