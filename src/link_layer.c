@@ -385,8 +385,13 @@ int llwrite(const unsigned char *buf, int bufSize){
 
  frameI[0] = F;
  frameI[1] = A_T;
-
- if() //duvida 
+ 
+ if(number_seq == 0){
+    frameI[2] = 0x00;
+ }
+ else if(number_seq == 1){
+    frameI[2] = 0x40;
+ }
 
 
 
