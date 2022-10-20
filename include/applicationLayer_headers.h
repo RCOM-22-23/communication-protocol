@@ -5,6 +5,8 @@
 #define PACKET_SIZE 256
 #define MAX_PACKETS 100
 
+#define MAX_ATTEMPTS 3
+
 typedef enum
 {
     OK,
@@ -12,11 +14,13 @@ typedef enum
     FileError,
     NoPacketsError,
     DisconnectionError,
+    ReadingError,
+    ExceededAttempts,
 } debugType;
 
 struct Packets
 {
-    unsigned int content[PACKET_SIZE];
+    unsigned char content[PACKET_SIZE];
     size_t size;
 };
 typedef struct Packets Packets;

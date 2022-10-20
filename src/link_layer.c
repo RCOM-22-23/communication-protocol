@@ -380,7 +380,7 @@ int read_RR(){
                         state = START;
                     break;
                 case REJ_RCV:
-                    if(!(check_state(read_char,role_byte^RJ,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                    if(!(check_state(read_char,role_byte^REJ_0,BCC_OK,&state) || check_state(read_char,role_byte^REJ_1,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case BCC_OK:
@@ -399,11 +399,14 @@ int read_RR(){
     return return_value;
 }
 
+//Returns 0 on retrying sending, 1 on sucess, -1 on failure (which closes the program)
 int llwrite(const unsigned char *buf, int bufSize){
     int rr_value;
     int rr_received = FALSE;
-    int bytes = send_I_frame(buf,bufSize);
+    
+    send_I_frame(buf,bufSize);
 
+    int prev_number_seq = number_seq;
     while (alarmCount < attempts && rr_received == FALSE)
     {
         if((rr_value = read_RR()) != -1){
@@ -414,8 +417,11 @@ int llwrite(const unsigned char *buf, int bufSize){
             printf("Could not receive RR, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
         }
     }
-
-    return bytes;
+    if(rr_received == TRUE){
+        if (prev_number_seq == number_seq) return 0;
+        return 1;
+    }
+    return -1;
 }
     
 

@@ -46,7 +46,28 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
 
     //<------llwrite()------>
 
-    //TODO : WRITE TO SERIAL PORT FROM PACKETS STRUCT
+    int i = 0;
+    int attempts = 0;
+    while(i < packet_number && attempts < MAX_ATTEMPTS){
+        switch (llwrite(packets[i].content,packets[i].size))
+        {
+        case 1:
+            i++;
+            attempts = 0;
+            break;
+        case 0:
+            attempts++;
+            break;
+        case -1:
+            return ReadingError;
+        default:
+            break;
+        }
+    }
+
+    if (attempts >= MAX_ATTEMPTS)
+        return ExceededAttempts;
+    
 
     //<------llwrite() end------>
 
@@ -181,6 +202,14 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             break;
         case DisconnectionError:
             printf("Could not disconnect from the other machine, closing application\n");
+            exit(-1);
+            break;
+        case ExceededAttempts:
+            printf("Exceed the number of attempts of writing the same packet, closing application\n");
+            exit(-1);
+            break;
+        case ReadingError:
+            printf("Could not read RR or REJ, closing application");
             exit(-1);
             break;
         default:
