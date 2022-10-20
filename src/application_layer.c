@@ -106,7 +106,7 @@ debugType readAndPackage(Packets *packets, int *packet_number, int *maxPackets,c
 
     //<------Reading File BEGIN------>
     size_t len;
-    while((len = fread(packets[*packet_number].content,sizeof(unsigned int),PACKET_SIZE,file)) != 0){
+    while((len = fread(packets[*packet_number].content,sizeof(unsigned char),PACKET_SIZE,file)) != 0){
         packets[*packet_number].size = len;
         (*packet_number)++;
         if(*(packet_number) >= *(maxPackets)){
@@ -140,7 +140,7 @@ debugType writePackage(const Packets *packets,int packet_number,const char *file
 
     //<------Writing File BEGIN------>
     for(int i = 0; i < packet_number; i++){
-        fwrite(packets[i].content,sizeof(unsigned int),packets[i].size,file);
+        fwrite(packets[i].content,sizeof(unsigned char),packets[i].size,file);
     }
     //<------Writing File END------>
 
@@ -188,11 +188,11 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
         }
     }
 
-    /*
-    print_packets(packets,packet_number);
-    writePackage(packets,packet_number,"output.gif");
-    */
-
+    
+    //print_packets(packets,packet_number);
+    //writePackage(packets,packet_number,"output.gif");
+    
+    
     //execute linklayer code, with error handling
     switch (executeLinkLayer(connectionParameters, packets, packet_number))
     {
@@ -233,6 +233,6 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 break;
         }
     }
-
+    
     free(packets);
 }
