@@ -293,52 +293,127 @@ int llopen(LinkLayer connectionParameters){
 ////////////////////////////////////////////////
 // LLWRITE
 ////////////////////////////////////////////////
+int send_I_frame(const unsigned char *buf, int bufSize){
+    unsigned int size_frameI = bufSize + 6;
+    unsigned char frameI[size_frameI];
+    unsigned char bcc2 = 0x00;
+
+    //Setting Flag
+    frameI[0] = F;
+    //Setting A
+    frameI[1] = A_T;
+    
+    //Setting C
+    if(number_seq == 0){
+        frameI[2] = I_0;
+    }
+    else if(number_seq == 1){
+        frameI[2] = I_1;
+    }
+
+    //Setting BCC1
+    frameI[3] = frameI[1] ^ frameI[2];
+
+    //Setting D1-DN
+    for(int i = 0; i < bufSize; i++){
+        frameI[i+4] = buf[i];
+        bcc2 = bcc2 ^ buf[i];
+    }
+    
+    //Setting BCC2
+    frameI[size_frameI - 2] = bcc2;
+    //Setting FLAG
+    frameI[size_frameI - 1] = F;
+
+    //TODO : Change this -> Stuffing should only be done to D1-DN
+    unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
+    
+    int bytes = write(fd,stuffed,size_frameI);
+    return bytes;
+}
+
+//read_RR returns 1 if it reads RR_1, 0 if it reads RR_0, and -1 if reads REJ_0 or REJ_1 or nothing at all.
+int read_RR(){
+    unsigned char role_byte = A_R;
+    int return_value = -1;
+
+    //small buffer for reading from serial port
+    unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_read);
+    alarm(timeout);
+
+    int state = START;
+    while(state != STOP){
+        int sequence_number = -1;
+        if(alarmEnabled == FALSE)
+            return FALSE;
+        int bytes = read(fd, buf, 1);
+        unsigned char read_char = buf[0];
+        if(bytes != 0){
+            switch(state){
+                case START:
+                    if(!check_state(read_char,F,FLAG_RCV,&state))
+                        state = START;
+                    break;
+                case FLAG_RCV:
+                    if(!(check_state(read_char,role_byte,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case A_RCV:
+                    if(check_state(read_char,RR_0,RR_0_RCV,&state)){
+                        sequence_number = 0;
+                    }
+                    else if(check_state(read_char,RR_1,RR_1_RCV,&state)){
+                        sequence_number = 1;
+                    }
+                    if(sequence_number != -1 && !(check_state(read_char,REJ_0,REJ_RCV,&state) || check_state(read_char,REJ_1,REJ_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case RR_0_RCV:
+                    if(!(check_state(read_char,role_byte^RR_0,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case RR_1_RCV:
+                    if(!(check_state(read_char,role_byte^RR_1,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case REJ_RCV:
+                    if(!(check_state(read_char,role_byte^RJ,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case BCC_OK:
+                    if(!check_state(read_char,F,STOP,&state)){
+                        state = START;
+                    }
+                    else{
+                        return_value = sequence_number;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return return_value;
+}
+
 int llwrite(const unsigned char *buf, int bufSize){
-   
- unsigned int size_frameI = bufSize + 6;
- unsigned char frameI[size_frameI];
- unsigned char bcc2 = 0x00;
+    int rr_value;
+    int rr_received = FALSE;
+    int bytes = send_I_frame(buf,bufSize);
 
- frameI[0] = F;
- frameI[1] = A_T;
- 
- if(number_seq == 0){
-    frameI[2] = 0x00;
- }
- else if(number_seq == 1){
-    frameI[2] = 0x40;
- }
-
-
-
- frameI[3] = frameI[1] ^ frameI[2];
-
- 
- for(int i = 0; i < bufSize; i++){
-    frameI[i+4] = buf[i];
-    bcc2 = bcc2 ^ buf[i];
- }
- 
- frameI[size_frameI - 2] = bcc2;
- frameI[size_frameI - 1] = F;
-
- unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
- 
-  int bytes = write(fd,stuffed,size_frameI);
-  printf("sent I frame\n");
-
-  alarm(timeout);
-
-    /*
-
-   if(number_seq == 0){
-
-   }
-   else if(number_seq == 1){
-     receive_RR()
-   }
-
-    */
+    while (alarmCount < attempts && rr_received == FALSE)
+    {
+        if((rr_value = read_RR()) != -1){
+            number_seq = rr_value;
+            rr_received = TRUE;
+        }
+        else{
+            printf("Could not receive RR, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+        }
+    }
 
     return bytes;
 }

@@ -50,15 +50,15 @@ volatile int STOP = FALSE;
 #define BCC1_DISC_R A_R^DISC
 
 // I FRAMES
-#define CONTROLO_0 0x00
-#define CONTROLO_1 0x40
+#define I_0 0x00
+#define I_1 0x40
 
-//RESPONDES TO I FRAMES
+//RESPONSES TO I FRAMES
 
-#define RR_CONTROLO_0 0x05
-#define RR_CONTROLO_1 0x85
-#define REJ_CONTROLO_0 0x01
-#define REJ_CONTROLO_1 0x81
+#define RR_0 0x05
+#define RR_1 0x85
+#define REJ_0 0x01
+#define REJ_1 0x81
 
 
 //<----------FRAMES END---------->
@@ -70,6 +70,9 @@ volatile int STOP = FALSE;
 #define C_RCV 4
 #define BCC_OK 5
 #define STOP 6
+#define RR_0_RCV 7
+#define RR_1_RCV 8
+#define REJ_RCV 9
 
 //<----------OTHER---------->
 
