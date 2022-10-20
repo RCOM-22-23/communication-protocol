@@ -113,6 +113,7 @@ struct termios newtio;
 
 int attempts;
 int timeout;
+int number_seq;
 LinkLayerRole role;
 //<----------GLOBAL VARIABLES END---------->
 
