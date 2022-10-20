@@ -102,7 +102,7 @@ int alarmEnabled = FALSE;
 int alarmCount = 0;
 int ua_R_received = FALSE;
 int ua_T_received = FALSE;
-int set_received = FALSE;
+int set_T_received = FALSE;
 int disc_received_R = FALSE;
 int disc_received_T = FALSE;
 

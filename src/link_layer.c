@@ -9,6 +9,13 @@
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
 
+int check_state(unsigned char read_char,unsigned char wanted_char, int new_state, int *current_state){
+    if(read_char == wanted_char){
+        *current_state = new_state;
+        return TRUE;
+    }
+    return FALSE;
+}
 
 //Byte Stuffing of the frame I
 unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
@@ -86,6 +93,61 @@ unsigned char *byte_Destuffing(unsigned char *stuffed_frame, unsigned int *lengt
   return destuffed_frame;
 }
 
+void alarm_read(int signal){
+    alarmEnabled = FALSE;
+    alarmCount++;
+}
+
+
+int read_control(unsigned char control_byte,LinkLayerRole role){
+    unsigned char role_byte;
+    if(role == LlRx) role_byte = A_T;
+    if(role == LlTx) role_byte = A_R;
+
+    //small buffer for reading from serial port
+    unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_read);
+    alarm(timeout);
+
+    int state = START;
+    while(state != STOP){
+        if(alarmEnabled == FALSE)
+            return FALSE;
+        int bytes = read(fd, buf, 1);
+        unsigned char read_char = buf[0];
+        if(bytes != 0){
+            switch(state){
+                case START:
+                    if(!check_state(read_char,F,FLAG_RCV,&state))
+                        state = START;
+                    break;
+                case FLAG_RCV:
+                    if(!(check_state(read_char,role_byte,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case A_RCV:
+                    if(!(check_state(read_char,control_byte,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case C_RCV:
+                    if(!(check_state(read_char,role_byte^control_byte,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case BCC_OK:
+                    if(!check_state(read_char,F,STOP,&state))
+                        state = START;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return TRUE;
+
+}
+
 
 void openSerialPort(LinkLayer connectionParameters){
     // Open serial port device for reading and writing and not as controlling tty
@@ -139,68 +201,9 @@ void openSerialPort(LinkLayer connectionParameters){
     printf("New termios structure set\n");
 }
 
-int check_state(unsigned char read_char,unsigned char wanted_char, int new_state, int *current_state){
-    if(read_char == wanted_char){
-        *current_state = new_state;
-        return TRUE;
-    }
-    return FALSE;
-}
 
-void attempt_readSet(int signal){
-    alarmEnabled = FALSE;
-    alarmCount++;
-    printf("Connection Failed, retrying (%d/%d)\n",alarmCount,attempts);
-}
 
-//State machine for reading set messages.
-int read_SET(LinkLayer connectionParameters){
-    //small buffer for reading from serial port
-    unsigned char buf[2];
-    // Set alarm function handler
-    (void)signal(SIGALRM, attempt_readSet);
 
-    int state = START;
-    while(state != STOP && alarmCount < connectionParameters.nRetransmissions){
-        int bytes = read(fd, buf, 1);
-        unsigned char read_char = buf[0];
-        if (alarmEnabled == FALSE) {
-                alarm(connectionParameters.timeout); // Set alarm to be triggered in <connectionParameters.timeout> seconds
-                alarmEnabled = TRUE;
-        } 
-        if(bytes != 0){
-            switch(state){
-                case START:
-                    if(!check_state(read_char,F,FLAG_RCV,&state))
-                        state = START;
-                    break;
-                case FLAG_RCV:
-                    if(!(check_state(read_char,A_T,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case A_RCV:
-                    if(!(check_state(read_char,SET,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case C_RCV:
-                    if(!(check_state(read_char,BCC1_SET,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case BCC_OK:
-                    if(!check_state(read_char,F,STOP,&state))
-                        state = START;
-                    else{
-                        set_received = TRUE;
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }      
-    }
-
-    return set_received;
-}
 
 void send_UA_R(){
     write(fd, ua_R, CONTROL_FRAME_SIZE);
@@ -212,112 +215,17 @@ void send_UA_T(){
     printf("Sent UA to receiver\n");
 }
 
-void alarm_UA(int signal){
-    alarmEnabled = FALSE;
-    alarmCount++;
-}
-
 void send_SET(){
     write(fd, set, CONTROL_FRAME_SIZE);
     printf("SET sent to receiver \n");
 }
-
-
-int receive_UA_R(){
-    //small buffer for reading from serial port
-    unsigned char buf[2];
-    alarmEnabled = TRUE;
-
-    (void)signal(SIGALRM, alarm_UA);
-    alarm(timeout);
-
-    int state = START;
-    while(state != STOP){
-        if(alarmEnabled == FALSE)
-            return FALSE;
-        int bytes = read(fd, buf, 1);
-        unsigned char read_char = buf[0];
-        if(bytes != 0){
-            switch(state){
-                case START:
-                    if(!check_state(read_char,F,FLAG_RCV,&state))
-                        state = START;
-                    break;
-                case FLAG_RCV:
-                    if(!(check_state(read_char,A_R,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case A_RCV:
-                    if(!(check_state(read_char,UA,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case C_RCV:
-                    if(!(check_state(read_char,BCC1_UA_R,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case BCC_OK:
-                    if(!check_state(read_char,F,STOP,&state))
-                        state = START;
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    return TRUE;
-}
-
-int receive_UA_T(){
-    //small buffer for reading from serial port
-    unsigned char buf[2];
-    alarmEnabled = TRUE;
-
-    (void)signal(SIGALRM, alarm_UA);
-    alarm(timeout);
-
-    int state = START;
-    while(state != STOP){
-        if(alarmEnabled == FALSE)
-            return FALSE;
-        int bytes = read(fd, buf, 1);
-        unsigned char read_char = buf[0];
-        if(bytes != 0){
-            switch(state){
-                case START:
-                    if(!check_state(read_char,F,FLAG_RCV,&state))
-                        state = START;
-                    break;
-                case FLAG_RCV:
-                    if(!(check_state(read_char,A_T,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case A_RCV:
-                    if(!(check_state(read_char,UA,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case C_RCV:
-                    if(!(check_state(read_char,BCC1_UA_T,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case BCC_OK:
-                    if(!check_state(read_char,F,STOP,&state))
-                        state = START;
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    return TRUE;
-}
-
 
 // Alarm function handler
 void connectionAttempt()
 {
     send_SET();
 
-    if(receive_UA_R() == TRUE){
+    if(read_control(UA,LlTx) == TRUE){
         ua_R_received = TRUE;
     }
     else{
@@ -345,11 +253,19 @@ int llopen_transmitter(LinkLayer connectionParameters){
 }
 
 int llopen_reader(LinkLayer connectionParameters){
-    if(read_SET(connectionParameters) == TRUE){
-        send_UA_R();
-        return 1; 
-    }
     
+    while (alarmCount < attempts && set_T_received == FALSE)
+    {
+        if(read_control(SET,LlRx) == TRUE){
+            set_T_received = TRUE;
+            send_UA_R();
+            return 1; 
+        }
+        else{
+            printf("Connection Failed, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+        }
+    }
+  
     return -1;
 }
 
@@ -413,6 +329,7 @@ int llwrite(const unsigned char *buf, int bufSize){
 
   alarm(timeout);
 
+    /*
 
    if(number_seq == 0){
 
@@ -421,15 +338,12 @@ int llwrite(const unsigned char *buf, int bufSize){
      receive_RR()
    }
 
-
+    */
 
     return bytes;
 }
     
-       
- 
-    return 0;
-}
+
 
 ////////////////////////////////////////////////
 // LLREAD
@@ -465,103 +379,8 @@ void send_DISC(){
     }   
 }
 
-void alarm_DISC(int signal){
-    alarmEnabled = FALSE;
-    alarmCount++;
-}
-
-int receive_DISC_R(){
-    //small buffer for reading from serial port
-    unsigned char buf[2];
-    alarmEnabled = TRUE;
-
-    (void)signal(SIGALRM, alarm_DISC);
-    alarm(timeout);
-
-    int state = START;
-    while(state != STOP){
-        if(alarmEnabled == FALSE)
-            return FALSE;
-        int bytes = read(fd, buf, 1);
-        unsigned char read_char = buf[0];
-        if(bytes != 0){
-            switch(state){
-                case START:
-                    if(!check_state(read_char,F,FLAG_RCV,&state))
-                        state = START;
-                    break;
-                case FLAG_RCV:
-                    if(!(check_state(read_char,A_R,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case A_RCV:
-                    if(!(check_state(read_char,DISC,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case C_RCV:
-                    if(!(check_state(read_char,BCC1_DISC_R,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case BCC_OK:
-                    if(!check_state(read_char,F,STOP,&state))
-                        state = START;
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    return TRUE;
-}
-
-
-int receive_DISC_T(){
-    //small buffer for reading from serial port
-    unsigned char buf[2];
-    alarmEnabled = TRUE;
-
-    (void)signal(SIGALRM, alarm_DISC);
-    alarm(timeout);
-
-    int state = START;
-    while(state != STOP){
-        if(alarmEnabled == FALSE)
-            return FALSE;
-        int bytes = read(fd, buf, 1);
-        unsigned char read_char = buf[0];
-        if(bytes != 0){
-            switch(state){
-                case START:
-                    if(!check_state(read_char,F,FLAG_RCV,&state))
-                        state = START;
-                    break;
-                case FLAG_RCV:
-                    if(!(check_state(read_char,A_T,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case A_RCV:
-                    if(!(check_state(read_char,DISC,C_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case C_RCV:
-                    if(!(check_state(read_char,BCC1_DISC_T,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
-                        state = START;
-                    break;
-                case BCC_OK:
-                    if(!check_state(read_char,F,STOP,&state))
-                        state = START;
-                    break;
-                default:
-                    break;
-            }
-        }
-    }
-    return TRUE;
-}
-
-
 void disconnectionAttempt_T(){
-    if(receive_DISC_R() == TRUE){
+    if(read_control(DISC,LlTx) == TRUE){
         disc_received_R = TRUE;
     }
     else{
@@ -570,7 +389,7 @@ void disconnectionAttempt_T(){
 }
 
 void disconnectionAttempt_R_1(){
-    if(receive_DISC_T() == TRUE){
+    if(read_control(DISC,LlRx) == TRUE){
         disc_received_T = TRUE;
     }
     else{
@@ -579,7 +398,7 @@ void disconnectionAttempt_R_1(){
 }
 
 void disconnectionAttempt_R_2(){
-    if(receive_UA_T() == TRUE){
+    if(read_control(UA,LlRx) == TRUE){
         ua_T_received = TRUE;
     }
     else{
