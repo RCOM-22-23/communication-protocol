@@ -58,6 +58,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
 
     //<------llwrite()------>
     if(connectionParameters.role == LlTx){
+        printf("---------Writing Frames to Reader---------\n");
         while(i < packet_number && attempts < MAX_ATTEMPTS){
             switch (llwrite(packets[i].content,packets[i].size))
             {
@@ -67,6 +68,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
                 break;
             case 0:
                 attempts++;
+                printf("Did not receive the correct frame, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
                 break;
             case -1:
                 return WritingError;
@@ -82,11 +84,11 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
     //<------llwrite() end------>
 
     //<------llread()------>
-
-    unsigned char packet_buffer[PACKET_SIZE] = {0};
-    int disc_received = FALSE;
-
     if(connectionParameters.role == LlRx){
+        printf("---------Reading Frames from Writer---------\n");
+        unsigned char packet_buffer[PACKET_SIZE] = {0};
+        int disc_received = FALSE;
+
         while(disc_received == FALSE && attempts < MAX_ATTEMPTS){
             memset(&packet_buffer[0], 0, sizeof(packet_buffer));
             switch (llread(packet_buffer))
@@ -98,6 +100,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
                     break;
                 case 0:
                     attempts++;
+                    printf("Did not receive correct packet, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
                     break;
                 case -1:
                     return ReadingError;
@@ -243,9 +246,9 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             break;
         case ExceededAttempts:
             if (connectionParameters.role == LlTx)
-                printf("Exceed the number of attempts of writing the same packet, closing application\n");
+                printf("Exceeded the number of attempts of writing the same packet, closing application\n");
             if (connectionParameters.role == LlRx)
-                printf("Exceed the number of attempts of reading the same packet, closing application\n");
+                printf("Exceeded the number of attempts of reading the same packet, closing application\n");
             exit(-1);
             break;
         case WritingError:

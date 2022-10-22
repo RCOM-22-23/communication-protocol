@@ -235,6 +235,8 @@ void connectionAttempt()
 
 
 int llopen_transmitter(LinkLayer connectionParameters){
+    printf("---------Attempting to establish connection with reader---------\n");
+
     timeout = connectionParameters.timeout;
 
     while (alarmCount < attempts && ua_R_received == FALSE)
@@ -253,7 +255,10 @@ int llopen_transmitter(LinkLayer connectionParameters){
 }
 
 int llopen_reader(LinkLayer connectionParameters){
-    
+    printf("---------Attempting to establish connection with transmitter---------\n");
+
+    timeout = connectionParameters.timeout;
+
     while (alarmCount < attempts && set_T_received == FALSE)
     {
         if(read_control(SET,LlRx) == TRUE){
@@ -326,13 +331,14 @@ int send_I_frame(const unsigned char *buf, int bufSize){
     frameI[size_frameI - 1] = F;
 
     //TODO : Change this -> Stuffing should only be done to D1-DN
-    unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
+    //unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
     
-    int bytes = write(fd,stuffed,size_frameI);
+    int bytes = write(fd,frameI,size_frameI);
     return bytes;
 }
 
 //read_RR returns 1 if it reads RR_1, 0 if it reads RR_0, and -1 if reads REJ_0 or REJ_1 or nothing at all.
+//TODO FIX READ_RR()
 int read_RR(){
     unsigned char role_byte = A_R;
     int return_value = -1;
@@ -406,11 +412,13 @@ int llwrite(const unsigned char *buf, int bufSize){
     alarmCount = 0;
 
     send_I_frame(buf,bufSize);
+    printf("Sent I(%d) frame to receiver\n",number_seq);
 
     int prev_number_seq = number_seq;
     while (alarmCount < attempts && rr_received == FALSE)
     {
-        if((rr_value = read_RR()) != -1){
+        rr_value = read_RR();
+        if(rr_value != 1 && rr_value != 0){
             number_seq = rr_value;
             rr_received = TRUE;
         }
@@ -525,7 +533,7 @@ void send_RR(){
     if(expected_packet == 1)
         write(fd, rr1, CONTROL_FRAME_SIZE);
 
-    printf("RR(%d) sent to receiver \n",expected_packet);
+    printf("RR(%d) sent to transmitter\n",expected_packet);
 }
 
 
@@ -535,7 +543,7 @@ void send_REJ(){
     if(expected_packet == 1)
         write(fd, rej0, CONTROL_FRAME_SIZE);
 
-    printf("REJ sent to receiver \n");
+    printf("REJ sent to transmitter\n");
 }
 
 //Returns 0 on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
@@ -557,11 +565,14 @@ int llread(unsigned char *packet){
     }
     if(I_received == TRUE){
         //Disc received
-        if(number_seq == 2) 
+        if(number_seq == 2){
+            printf("Read DISC from Transmitter\n");
             return 2;
-
+        }
+            
         //got the expected packet
         if (expected_packet == number_seq){
+            printf("Received I(%d) from the transmitter\n",number_seq);
             switch_expected_packet();
             send_RR();
             return 1;
