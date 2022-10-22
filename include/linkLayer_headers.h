@@ -78,6 +78,8 @@ volatile int STOP = FALSE;
 #define DISC_RCV 12
 #define BCC_I_OK 13
 #define BCC_DISC_OK 14
+#define REJ_0_RCV 15
+#define REJ_1_RCV 16
 
 //<----------OTHER---------->
 

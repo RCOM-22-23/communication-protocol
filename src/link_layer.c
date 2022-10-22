@@ -337,7 +337,7 @@ int send_I_frame(const unsigned char *buf, int bufSize){
     return bytes;
 }
 
-//read_RR returns 1 if it reads RR_1, 0 if it reads RR_0, and -1 if reads REJ_0 or REJ_1 or nothing at all.
+//read_RR returns 1 if it reads RR_1, 0 if it reads RR_0, and -2 if reads REJ_0, -3 for REJ_1 and -1 for nothing at all.
 //TODO FIX READ_RR()
 int read_RR(){
     unsigned char role_byte = A_R;
@@ -350,16 +350,19 @@ int read_RR(){
     (void)signal(SIGALRM, alarm_read);
     alarm(timeout);
 
+    int sequence_number = -1;
+
     int state = START;
     while(state != STOP){
-        int sequence_number = -1;
         if(alarmEnabled == FALSE)
             return FALSE;
         int bytes = read(fd, buf, 1);
         unsigned char read_char = buf[0];
         if(bytes != 0){
+            printf("%02X ",read_char);
             switch(state){
                 case START:
+                    sequence_number = -1;
                     if(!check_state(read_char,F,FLAG_RCV,&state))
                         state = START;
                     break;
@@ -374,6 +377,12 @@ int read_RR(){
                     else if(check_state(read_char,RR_1,RR_1_RCV,&state)){
                         sequence_number = 1;
                     }
+                    else if(check_state(read_char,REJ_0,REJ_0_RCV,&state)){
+                        sequence_number = 1;
+                    }
+                    else if(check_state(read_char,REJ_1,REJ_1_RCV,&state)){
+                        sequence_number = 0;
+                    }
                     if(sequence_number != -1 && !(check_state(read_char,REJ_0,REJ_RCV,&state) || check_state(read_char,REJ_1,REJ_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
@@ -385,8 +394,12 @@ int read_RR(){
                     if(!(check_state(read_char,role_byte^RR_1,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
-                case REJ_RCV:
-                    if(!(check_state(read_char,role_byte^REJ_0,BCC_OK,&state) || check_state(read_char,role_byte^REJ_1,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                case REJ_0_RCV:
+                    if(!(check_state(read_char,role_byte^REJ_0,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case REJ_1_RCV:
+                    if(!(check_state(read_char,role_byte^REJ_1,BCC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case BCC_OK:
@@ -402,6 +415,7 @@ int read_RR(){
             }
         }
     }
+    printf("return value : %d\n",return_value);
     return return_value;
 }
 
@@ -409,24 +423,30 @@ int read_RR(){
 int llwrite(const unsigned char *buf, int bufSize){
     int rr_value;
     int rr_received = FALSE;
+    int rej_received = FALSE;
     alarmCount = 0;
 
     send_I_frame(buf,bufSize);
+    sleep(1);
     printf("Sent I(%d) frame to receiver\n",number_seq);
 
     int prev_number_seq = number_seq;
-    while (alarmCount < attempts && rr_received == FALSE)
+    while (alarmCount < attempts && rr_received == FALSE && rej_received == FALSE)
     {
         rr_value = read_RR();
-        if(rr_value != 1 && rr_value != 0){
+        if(rr_value == 1 || rr_value == 0){
             number_seq = rr_value;
             rr_received = TRUE;
         }
+        else if(rr_value == -2 || rr_value == -3){
+            number_seq = rr_value;
+            rej_received = TRUE;
+        }
         else{
-            printf("Could not receive RR, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+            printf("Could not receive RR or REJ, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
         }
     }
-    if(rr_received == TRUE){
+    if(rr_received == TRUE || rej_received == TRUE){
         if (prev_number_seq == number_seq) return 0;
         return 1;
     }
@@ -546,6 +566,15 @@ void send_REJ(){
     printf("REJ sent to transmitter\n");
 }
 
+void checkBCC2(unsigned char *packet,int *I_value){
+    unsigned char bcc2 = 0x00;
+    for(int i = 0; i < packet_counter-1; i++){
+        bcc2 = bcc2^packet[i];
+    }
+    if(bcc2 != packet[packet_counter-1])
+        *I_value = -1;
+}
+
 //Returns 0 on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
 int llread(unsigned char *packet){
     int I_value;
@@ -555,6 +584,7 @@ int llread(unsigned char *packet){
     while (alarmCount < attempts && I_received == FALSE)
     {
         I_value = read_I(packet);
+        checkBCC2(packet,&I_value);
         if(I_value != -1){
             number_seq = I_value;
             I_received = TRUE;

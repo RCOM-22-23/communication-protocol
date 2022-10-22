@@ -68,7 +68,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
                 break;
             case 0:
                 attempts++;
-                printf("Did not receive the correct frame, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
+                printf("Did not receive any known frame, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
                 break;
             case -1:
                 return WritingError;
