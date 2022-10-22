@@ -359,7 +359,6 @@ int read_RR(){
         int bytes = read(fd, buf, 1);
         unsigned char read_char = buf[0];
         if(bytes != 0){
-            printf("%02X ",read_char);
             switch(state){
                 case START:
                     sequence_number = -1;
@@ -383,7 +382,7 @@ int read_RR(){
                     else if(check_state(read_char,REJ_1,REJ_1_RCV,&state)){
                         sequence_number = 0;
                     }
-                    if(sequence_number != -1 && !(check_state(read_char,REJ_0,REJ_RCV,&state) || check_state(read_char,REJ_1,REJ_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                    if(!(sequence_number != -1 || check_state(read_char,REJ_0,REJ_RCV,&state) || check_state(read_char,REJ_1,REJ_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case RR_0_RCV:
@@ -415,7 +414,6 @@ int read_RR(){
             }
         }
     }
-    printf("return value : %d\n",return_value);
     return return_value;
 }
 
@@ -427,7 +425,6 @@ int llwrite(const unsigned char *buf, int bufSize){
     alarmCount = 0;
 
     send_I_frame(buf,bufSize);
-    sleep(1);
     printf("Sent I(%d) frame to receiver\n",number_seq);
 
     int prev_number_seq = number_seq;
@@ -435,10 +432,14 @@ int llwrite(const unsigned char *buf, int bufSize){
     {
         rr_value = read_RR();
         if(rr_value == 1 || rr_value == 0){
+            printf("Received RR(%d) from receiver\n",rr_value);
             number_seq = rr_value;
             rr_received = TRUE;
         }
         else if(rr_value == -2 || rr_value == -3){
+            int print_value = 0;
+            if(rr_value == -3) print_value = 1;
+            printf("Received REJ(%d) from receiver\n",print_value);
             number_seq = rr_value;
             rej_received = TRUE;
         }
@@ -472,10 +473,11 @@ int read_I(unsigned char *packet){
 
     (void)signal(SIGALRM, alarm_read);
     alarm(timeout);
+    
+    int sequence_number = -1;
 
     int state = START;
     while(state != STOP){
-        int sequence_number = -1;
         if(alarmEnabled == FALSE)
             return FALSE;
         int bytes = read(fd, buf, 1);
@@ -483,6 +485,7 @@ int read_I(unsigned char *packet){
         if(bytes != 0){
             switch(state){
                 case START:
+                    sequence_number = -1;
                     if(!check_state(read_char,F,FLAG_RCV,&state))
                         state = START;
                     break;
@@ -500,7 +503,7 @@ int read_I(unsigned char *packet){
                     else if(check_state(read_char,DISC,DISC_RCV,&state)){
                         sequence_number = 2;
                     }
-                    if(sequence_number != -1 && !(check_state(read_char,F,FLAG_RCV,&state)))
+                    if(!(sequence_number != -1 || check_state(read_char,F,FLAG_RCV,&state)))
                         state = START;
                     break;
                 case I_0_RCV:
@@ -571,8 +574,12 @@ void checkBCC2(unsigned char *packet,int *I_value){
     for(int i = 0; i < packet_counter-1; i++){
         bcc2 = bcc2^packet[i];
     }
-    if(bcc2 != packet[packet_counter-1])
+    if(bcc2 != packet[packet_counter-1]){
         *I_value = -1;
+        printf("Invalid BCC2\n");  
+    }
+        
+
 }
 
 //Returns 0 on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
@@ -580,11 +587,12 @@ int llread(unsigned char *packet){
     int I_value;
     int I_received = FALSE;
     alarmCount = 0;
+    packet_counter = 0;
 
     while (alarmCount < attempts && I_received == FALSE)
     {
         I_value = read_I(packet);
-        checkBCC2(packet,&I_value);
+        //checkBCC2(packet,&I_value);
         if(I_value != -1){
             number_seq = I_value;
             I_received = TRUE;
@@ -674,6 +682,8 @@ int llclose(int showStatistics)
 
     //Transmitter
     if(role == LlTx){
+        printf("---------Disconnecting from receiver---------\n");
+
         send_DISC();
         while (alarmCount < attempts && disc_received_R == FALSE)
         {
@@ -693,6 +703,8 @@ int llclose(int showStatistics)
     }
     //Receiver
     else if(role == LlRx){
+        printf("---------Disconnecting from transmitter---------\n");
+
         printf("Received DISC from transmitter\n");
         alarmEnabled = FALSE;
         alarmCount = 0;
