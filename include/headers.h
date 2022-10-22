@@ -8,5 +8,7 @@
 #define FALSE 0
 #define TRUE 1
 
+#define PACKET_SIZE 256
+
 #endif // _HEADERS_H_
 

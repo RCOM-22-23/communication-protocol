@@ -1,8 +1,8 @@
 #ifndef _APPLICATION_HEADERS_H_
 #define _APPLICATION_HEADERS_H_
 
-#include <stdio.h>
-#define PACKET_SIZE 256
+#include <headers.h>
+
 #define MAX_PACKETS 100
 
 #define MAX_ATTEMPTS 3
@@ -15,6 +15,7 @@ typedef enum
     NoPacketsError,
     DisconnectionError,
     ReadingError,
+    WritingError,
     ExceededAttempts,
 } debugType;
 

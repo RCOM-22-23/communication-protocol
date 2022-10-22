@@ -73,6 +73,11 @@ volatile int STOP = FALSE;
 #define RR_0_RCV 7
 #define RR_1_RCV 8
 #define REJ_RCV 9
+#define I_0_RCV 10
+#define I_1_RCV 11
+#define DISC_RCV 12
+#define BCC_I_OK 13
+#define BCC_DISC_OK 14
 
 //<----------OTHER---------->
 
@@ -96,6 +101,15 @@ unsigned char disc_T[CONTROL_FRAME_SIZE] = {F,A_T,DISC,BCC1_DISC_T,F};
 
 unsigned char disc_R[CONTROL_FRAME_SIZE] = {F,A_R,DISC,BCC1_DISC_R,F};
 
+//RR Format
+unsigned char rr0[CONTROL_FRAME_SIZE] = {F,A_R,RR_0,A_R^RR_0,F};
+
+unsigned char rr1[CONTROL_FRAME_SIZE] = {F,A_R,RR_1,A_R^RR_1,F};
+
+//REJ Format
+unsigned char rej0[CONTROL_FRAME_SIZE] = {F,A_R,REJ_0,A_R^REJ_0,F};
+
+unsigned char rej1[CONTROL_FRAME_SIZE] = {F,A_R,REJ_1,A_R^REJ_1,F};
 
 //global serial port descriptor
 int fd;
@@ -117,6 +131,8 @@ struct termios newtio;
 int attempts;
 int timeout;
 int number_seq;
+int packet_counter = 0;
+int expected_packet = 0;
 LinkLayerRole role;
 //<----------GLOBAL VARIABLES END---------->
 

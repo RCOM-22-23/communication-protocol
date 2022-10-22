@@ -399,11 +399,12 @@ int read_RR(){
     return return_value;
 }
 
-//Returns 0 on retrying sending, 1 on sucess, -1 on failure (which closes the program)
+//Returns 0 on retrying sending, 1 on success, -1 on failure (which closes the program)
 int llwrite(const unsigned char *buf, int bufSize){
     int rr_value;
     int rr_received = FALSE;
-    
+    alarmCount = 0;
+
     send_I_frame(buf,bufSize);
 
     int prev_number_seq = number_seq;
@@ -429,10 +430,148 @@ int llwrite(const unsigned char *buf, int bufSize){
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-int llread(unsigned char *packet){
-    // TODO
 
-    return 0;
+
+//read_I returns 1 if it reads I_1, 0 if it reads I_0, 2 if it reads DISC, and -1 if reads nothing at all
+int read_I(unsigned char *packet){
+    unsigned char role_byte = A_T;
+    int return_value = -1;
+    packet_counter = 0;
+
+    //small buffer for reading from serial port
+    unsigned char buf[2];
+    alarmEnabled = TRUE;
+
+    (void)signal(SIGALRM, alarm_read);
+    alarm(timeout);
+
+    int state = START;
+    while(state != STOP){
+        int sequence_number = -1;
+        if(alarmEnabled == FALSE)
+            return FALSE;
+        int bytes = read(fd, buf, 1);
+        unsigned char read_char = buf[0];
+        if(bytes != 0){
+            switch(state){
+                case START:
+                    if(!check_state(read_char,F,FLAG_RCV,&state))
+                        state = START;
+                    break;
+                case FLAG_RCV:
+                    if(!(check_state(read_char,role_byte,A_RCV,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case A_RCV:
+                    if(check_state(read_char,I_0,I_0_RCV,&state)){
+                        sequence_number = 0;
+                    }
+                    else if(check_state(read_char,I_1,I_1_RCV,&state)){
+                        sequence_number = 1;
+                    }
+                    else if(check_state(read_char,DISC,DISC_RCV,&state)){
+                        sequence_number = 2;
+                    }
+                    if(sequence_number != -1 && !(check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case I_0_RCV:
+                    if(!(check_state(read_char,role_byte^I_0,BCC_I_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case I_1_RCV:
+                    if(!(check_state(read_char,role_byte^I_1,BCC_I_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case DISC_RCV:
+                    if(!(check_state(read_char,role_byte^DISC,BCC_DISC_OK,&state) || check_state(read_char,F,FLAG_RCV,&state)))
+                        state = START;
+                    break;
+                case BCC_DISC_OK:
+                    if(!check_state(read_char,F,STOP,&state)){
+                        state = START;
+                    }
+                    else{
+                        return_value = sequence_number;
+                    }
+                    break;
+                case BCC_I_OK:
+                    if(!check_state(read_char,F,STOP,&state)){
+                        //TODO : destuffing
+                        packet[packet_counter] = read_char;
+                        packet_counter++;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    return return_value;
+}
+
+void switch_expected_packet(){
+    if (expected_packet == 1){
+        expected_packet = 0;
+    }
+    else if(expected_packet == 0){
+        expected_packet = 1;
+    }
+}
+
+void send_RR(){
+    if(expected_packet == 0)
+        write(fd, rr0, CONTROL_FRAME_SIZE);
+    if(expected_packet == 1)
+        write(fd, rr1, CONTROL_FRAME_SIZE);
+
+    printf("RR(%d) sent to receiver \n",expected_packet);
+}
+
+
+void send_REJ(){
+     if(expected_packet == 0)
+        write(fd, rej1, CONTROL_FRAME_SIZE);
+    if(expected_packet == 1)
+        write(fd, rej0, CONTROL_FRAME_SIZE);
+
+    printf("REJ sent to receiver \n");
+}
+
+//Returns 0 on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
+int llread(unsigned char *packet){
+    int I_value;
+    int I_received = FALSE;
+    alarmCount = 0;
+
+    while (alarmCount < attempts && I_received == FALSE)
+    {
+        I_value = read_I(packet);
+        if(I_value != -1){
+            number_seq = I_value;
+            I_received = TRUE;
+        }
+        else{
+            printf("Could not receive I or DISC, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
+        }
+    }
+    if(I_received == TRUE){
+        //Disc received
+        if(number_seq == 2) 
+            return 2;
+
+        //got the expected packet
+        if (expected_packet == number_seq){
+            switch_expected_packet();
+            send_RR();
+            return 1;
+        } 
+
+        //did not receive expected packet
+        send_REJ();
+        return 0;
+    }
+    return -1;
 }
 
 ////////////////////////////////////////////////
@@ -513,30 +652,21 @@ int llclose(int showStatistics)
     }
     //Receiver
     else if(role == LlRx){
-        while (alarmCount < attempts && disc_received_T == FALSE)
+        printf("Received DISC from transmitter\n");
+        alarmEnabled = FALSE;
+        alarmCount = 0;
+        send_DISC();
+
+        //Read UA
+        while (alarmCount < attempts && ua_T_received == FALSE)
         {
-            //Wait for disc from other program
-            disconnectionAttempt_R_1();
+            //Wait for UA from other program
+            disconnectionAttempt_R_2();
         }
-        if(disc_received_T == TRUE){
-            //Received disc from transmitter
-
-            printf("Received DISC from transmitter\n");
-            alarmEnabled = FALSE;
-            alarmCount = 0;
-            send_DISC();
-
-            //Read UA
-            while (alarmCount < attempts && ua_T_received == FALSE)
-            {
-                //Wait for UA from other program
-                disconnectionAttempt_R_2();
-            }
-            if(ua_T_received == TRUE){
-                printf("Received UA from transmitter\n");
-                close_SerialPort();
+        if(ua_T_received == TRUE){
+            printf("Received UA from transmitter\n");
+            close_SerialPort();
                 return 1;
-            }
         }
     }
         

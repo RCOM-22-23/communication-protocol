@@ -7,6 +7,15 @@
 
 
 
+int copy_values(unsigned char *destination, const unsigned char *source){
+    int i = 0;
+    while(source[i] != '\0' || i <= PACKET_SIZE){
+        destination[i] = source[i];
+        i++;
+    }
+    return i;
+}
+
 LinkLayerRole getRole(const char *role){
     if(strcmp(role,"tx") == 0)
         return LlTx;
@@ -44,37 +53,65 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
     }
     //<------llopen() end------>
 
-    //<------llwrite()------>
-
     int i = 0;
     int attempts = 0;
-    while(i < packet_number && attempts < MAX_ATTEMPTS){
-        switch (llwrite(packets[i].content,packets[i].size))
-        {
-        case 1:
-            i++;
-            attempts = 0;
-            break;
-        case 0:
-            attempts++;
-            break;
-        case -1:
-            return ReadingError;
-        default:
-            break;
+
+    //<------llwrite()------>
+    if(connectionParameters.role == LlTx){
+        while(i < packet_number && attempts < MAX_ATTEMPTS){
+            switch (llwrite(packets[i].content,packets[i].size))
+            {
+            case 1:
+                i++;
+                attempts = 0;
+                break;
+            case 0:
+                attempts++;
+                break;
+            case -1:
+                return WritingError;
+            default:
+                break;
+            }
         }
+
+        if (attempts >= MAX_ATTEMPTS)
+            return ExceededAttempts;
     }
-
-    if (attempts >= MAX_ATTEMPTS)
-        return ExceededAttempts;
     
-
     //<------llwrite() end------>
 
     //<------llread()------>
 
-    //TODO : WRITE FROM SERIAL PORT FROM PACKETS STRUCT
+    unsigned char packet_buffer[PACKET_SIZE] = {0};
+    int disc_received = FALSE;
 
+    if(connectionParameters.role == LlRx){
+        while(disc_received == FALSE && attempts < MAX_ATTEMPTS){
+            memset(&packet_buffer[0], 0, sizeof(packet_buffer));
+            switch (llread(packet_buffer))
+            {
+                case 1:
+                    packets[i].size = copy_values(packets[i].content, packet_buffer);
+                    i++;
+                    attempts = 0;
+                    break;
+                case 0:
+                    attempts++;
+                    break;
+                case -1:
+                    return ReadingError;
+                case 2:
+                    disc_received = TRUE;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (attempts >= MAX_ATTEMPTS)
+            return ExceededAttempts;
+    }
     //<------llread() end------>
 
     //<------llclose()------>
@@ -205,10 +242,13 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             exit(-1);
             break;
         case ExceededAttempts:
-            printf("Exceed the number of attempts of writing the same packet, closing application\n");
+            if (connectionParameters.role == LlTx)
+                printf("Exceed the number of attempts of writing the same packet, closing application\n");
+            if (connectionParameters.role == LlRx)
+                printf("Exceed the number of attempts of reading the same packet, closing application\n");
             exit(-1);
             break;
-        case ReadingError:
+        case WritingError:
             printf("Could not read RR or REJ, closing application");
             exit(-1);
             break;
