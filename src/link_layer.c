@@ -23,11 +23,14 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
     
     unsigned int Length = *length;
 
-    stuffed_frame[0] = F;
+    stuffed_frame[0] = frame[0];
+    stuffed_frame[1] = frame[1];
+    stuffed_frame[2] = frame[2];
+    stuffed_frame[3] = frame[3];
 
-    int j = 1;
+    int j = 4;
 
-    for(int i = 0; i < *length; i++){
+    for(int i = 4; i < *length-2; i++){
         if(frame[i] == F){
             Length++;
             stuffed_frame = (unsigned char *) realloc(stuffed_frame, Length);
@@ -50,7 +53,8 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
         }
     }
     
-    stuffed_frame[j] = F;
+    stuffed_frame[j] = frame[*length-2];
+    stuffed_frame[++j] = frame[*length-1];
     *length = Length;
 
 
