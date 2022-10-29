@@ -66,12 +66,10 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
                 i++;
                 attempts = 0;
                 break;
-            case 0:
+            case -1:
                 attempts++;
                 printf("Did not receive any known frame, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
                 break;
-            case -1:
-                return WritingError;
             default:
                 break;
             }
@@ -98,12 +96,10 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
                     i++;
                     attempts = 0;
                     break;
-                case 0:
+                case -1:
                     attempts++;
                     printf("Did not receive correct packet, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
                     break;
-                case -1:
-                    return ReadingError;
                 case 2:
                     disc_received = TRUE;
                     break;

@@ -338,6 +338,12 @@ int send_I_frame(const unsigned char *buf, int bufSize){
     //unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
     
     int bytes = write(fd,frameI,size_frameI);
+    /*
+    for(int i = 0; i < size_frameI; i++) {
+        printf("%X-",frameI[i]);
+    }
+    */
+    printf("\n");
     return bytes;
 }
 
@@ -426,33 +432,28 @@ int llwrite(const unsigned char *buf, int bufSize){
     int rr_value;
     int rr_received = FALSE;
     int rej_received = FALSE;
-    alarmCount = 0;
-
     send_I_frame(buf,bufSize);
     printf("Sent I(%d) frame to receiver\n",number_seq);
 
     int prev_number_seq = number_seq;
-    while (alarmCount < attempts && rr_received == FALSE && rej_received == FALSE)
-    {
-        rr_value = read_RR();
-        if(rr_value == 1 || rr_value == 0){
-            printf("Received RR(%d) from receiver\n",rr_value);
-            number_seq = rr_value;
-            rr_received = TRUE;
-        }
-        else if(rr_value == -2 || rr_value == -3){
-            int print_value = 0;
-            if(rr_value == -3) print_value = 1;
-            printf("Received REJ(%d) from receiver\n",print_value);
-            number_seq = rr_value;
-            rej_received = TRUE;
-        }
-        else{
-            printf("Could not receive RR or REJ, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
-        }
+
+    rr_value = read_RR();
+
+    if(rr_value == 1 || rr_value == 0){
+    printf("Received RR(%d) from receiver\n",rr_value);
+        number_seq = rr_value;
+        rr_received = TRUE;
     }
+    else if(rr_value == -2 || rr_value == -3){
+        int print_value = 0;
+        if(rr_value == -3) print_value = 1;
+        printf("Received REJ(%d) from receiver\n",print_value);
+        number_seq = rr_value;
+        rej_received = TRUE;
+    }
+
     if(rr_received == TRUE || rej_received == TRUE){
-        if (prev_number_seq == number_seq) return 0;
+        if (prev_number_seq == number_seq) return -1;
         return 1;
     }
     return -1;
@@ -487,6 +488,7 @@ int read_I(unsigned char *packet){
         int bytes = read(fd, buf, 1);
         unsigned char read_char = buf[0];
         if(bytes != 0){
+        //printf("%X-",read_char);
             switch(state){
                 case START:
                     sequence_number = -1;
@@ -535,6 +537,9 @@ int read_I(unsigned char *packet){
                         //TODO : destuffing
                         packet[packet_counter] = read_char;
                         packet_counter++;
+                    }
+                    else{
+                        return_value = sequence_number;
                     }
                     break;
                 default:
@@ -593,20 +598,19 @@ int llread(unsigned char *packet){
     alarmCount = 0;
     packet_counter = 0;
 
-    while (alarmCount < attempts && I_received == FALSE)
-    {
-        I_value = read_I(packet);
-        //checkBCC2(packet,&I_value);
-        if(I_value != -1){
-            number_seq = I_value;
-            I_received = TRUE;
-        }
-        else{
-            printf("Could not receive I or DISC, retrying in %d seconds (%d/%d)\n",timeout,alarmCount,attempts);
-        }
+    I_value = read_I(packet);
+
+    printf("I_VALUE : %d\n",I_value);
+    printf("--------------\n");
+
+    //checkBCC2(packet,&I_value);
+    if(I_value != -1){
+        number_seq = I_value;
+        I_received = TRUE;
     }
+       
     if(I_received == TRUE){
-        //Disc received
+        //Disc received 
         if(number_seq == 2){
             printf("Read DISC from Transmitter\n");
             return 2;
@@ -618,12 +622,11 @@ int llread(unsigned char *packet){
             switch_expected_packet();
             send_RR();
             return 1;
-        } 
-
-        //did not receive expected packet
-        send_REJ();
-        return 0;
+        }
     }
+
+    //did not receive expected packet
+    send_REJ();
     return -1;
 }
 
