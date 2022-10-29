@@ -62,7 +62,7 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
 }
 
 //Destuffing of the frame I
-unsigned char *byte_Destuffing(unsigned char *stuffed_frame, unsigned int *length){
+unsigned char *byte_Destuffing(unsigned char *stuffed_frame, int *length){
 
     unsigned int Length = 0;
     unsigned char *destuffed_frame = malloc(Length);
@@ -335,14 +335,12 @@ int send_I_frame(const unsigned char *buf, int bufSize){
     frameI[size_frameI - 1] = F;
 
     //TODO : Change this -> Stuffing should only be done to D1-DN
-    //unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
+    unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
     
-    int bytes = write(fd,frameI,size_frameI);
-    /*
-    for(int i = 0; i < size_frameI; i++) {
-        printf("%X-",frameI[i]);
+    int bytes = write(fd,stuffed,size_frameI);
+    for(int i = 4 ; i < size_frameI-2; i++){
+        printf("%X-",stuffed[i]);
     }
-    */
     printf("\n");
     return bytes;
 }
@@ -470,7 +468,7 @@ int llwrite(const unsigned char *buf, int bufSize){
 int read_I(unsigned char *packet){
     unsigned char role_byte = A_T;
     int return_value = -1;
-    packet_counter = 0;
+
 
     //small buffer for reading from serial port
     unsigned char buf[2];
@@ -488,7 +486,6 @@ int read_I(unsigned char *packet){
         int bytes = read(fd, buf, 1);
         unsigned char read_char = buf[0];
         if(bytes != 0){
-        //printf("%X-",read_char);
             switch(state){
                 case START:
                     sequence_number = -1;
@@ -599,10 +596,6 @@ int llread(unsigned char *packet){
     packet_counter = 0;
 
     I_value = read_I(packet);
-
-    printf("I_VALUE : %d\n",I_value);
-    printf("--------------\n");
-
     //checkBCC2(packet,&I_value);
     if(I_value != -1){
         number_seq = I_value;
@@ -620,6 +613,11 @@ int llread(unsigned char *packet){
         if (expected_packet == number_seq){
             printf("Received I(%d) from the transmitter\n",number_seq);
             switch_expected_packet();
+            byte_Destuffing(packet,&packet_counter);
+            for(int i = 0; i < packet_counter; i++){
+                if(packet[i] != 0) printf("%X-",packet[i]);
+            }
+            printf("\n");
             send_RR();
             return 1;
         }
