@@ -133,7 +133,6 @@ struct termios newtio;
 int attempts;
 int timeout;
 int number_seq;
-int packet_counter = 0;
 int expected_packet = 0;
 LinkLayerRole role;
 //<----------GLOBAL VARIABLES END---------->

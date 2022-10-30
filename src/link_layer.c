@@ -62,7 +62,7 @@ unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
 }
 
 //Destuffing of the frame I
-unsigned char *byte_Destuffing(unsigned char *stuffed_frame, int *length){
+unsigned char *byte_Destuffing(unsigned char *stuffed_frame,unsigned int *length){
 
     unsigned int Length = 0;
     unsigned char *destuffed_frame = malloc(Length);
@@ -465,7 +465,7 @@ int llwrite(const unsigned char *buf, int bufSize){
 
 
 //read_I returns 1 if it reads I_1, 0 if it reads I_0, 2 if it reads DISC, and -1 if reads nothing at all
-int read_I(unsigned char *packet){
+int read_I(unsigned char *packet, unsigned int *packet_counter){
     unsigned char role_byte = A_T;
     int return_value = -1;
 
@@ -532,8 +532,8 @@ int read_I(unsigned char *packet){
                 case BCC_I_OK:
                     if(!check_state(read_char,F,STOP,&state)){
                         //TODO : destuffing
-                        packet[packet_counter] = read_char;
-                        packet_counter++;
+                        packet[*packet_counter] = read_char;
+                        (*packet_counter)++;
                     }
                     else{
                         return_value = sequence_number;
@@ -575,7 +575,7 @@ void send_REJ(){
     printf("REJ sent to transmitter\n");
 }
 
-void checkBCC2(unsigned char *packet,int *I_value){
+void checkBCC2(unsigned char *packet,int *I_value, unsigned int packet_counter){
     unsigned char bcc2 = 0x00;
     for(int i = 0; i < packet_counter-1; i++){
         bcc2 = bcc2^packet[i];
@@ -593,9 +593,9 @@ int llread(unsigned char *packet){
     int I_value;
     int I_received = FALSE;
     alarmCount = 0;
-    packet_counter = 0;
+    unsigned int packet_counter = 0;
 
-    I_value = read_I(packet);
+    I_value = read_I(packet,&packet_counter);
     //checkBCC2(packet,&I_value);
     if(I_value != -1){
         number_seq = I_value;
@@ -613,10 +613,13 @@ int llread(unsigned char *packet){
         if (expected_packet == number_seq){
             printf("Received I(%d) from the transmitter\n",number_seq);
             switch_expected_packet();
+            printf("packet_counter (BEFORE) : %d\n", packet_counter);
             byte_Destuffing(packet,&packet_counter);
             for(int i = 0; i < packet_counter; i++){
                 if(packet[i] != 0) printf("%X-",packet[i]);
             }
+            printf("packet_counter (AFTER) : %d\n", packet_counter);
+
             printf("\n");
             send_RR();
             return 1;
