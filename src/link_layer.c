@@ -334,14 +334,18 @@ int send_I_frame(const unsigned char *buf, int bufSize){
     //Setting FLAG
     frameI[size_frameI - 1] = F;
 
+    printf("Frame size : %d\n",size_frameI-6);
+    for(int i = 4 ; i < size_frameI-2; i++){
+        printf("%02X-",frameI[i]);
+    }
+    printf("\n");
+
+
     //TODO : Change this -> Stuffing should only be done to D1-DN
     unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
     
     int bytes = write(fd,stuffed,size_frameI);
-    for(int i = 4 ; i < size_frameI-2; i++){
-        printf("%X-",stuffed[i]);
-    }
-    printf("\n");
+  
     return bytes;
 }
 
@@ -588,7 +592,7 @@ void checkBCC2(unsigned char *packet,int *I_value, unsigned int packet_counter){
 
 }
 
-//Returns 0 on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
+//Returns on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
 int llread(unsigned char *packet){
     int I_value;
     int I_received = FALSE;
@@ -606,23 +610,23 @@ int llread(unsigned char *packet){
         //Disc received 
         if(number_seq == 2){
             printf("Read DISC from Transmitter\n");
-            return 2;
+            return -2;
         }
             
         //got the expected packet
         if (expected_packet == number_seq){
             printf("Received I(%d) from the transmitter\n",number_seq);
             switch_expected_packet();
+            
             printf("packet_counter (BEFORE) : %d\n", packet_counter);
             byte_Destuffing(packet,&packet_counter);
             for(int i = 0; i < packet_counter; i++){
-                if(packet[i] != 0) printf("%X-",packet[i]);
+                if(packet[i] != 0) printf("%02X-",packet[i]);
             }
-            printf("packet_counter (AFTER) : %d\n", packet_counter);
-
+            printf("\npacket_counter (AFTER) : %d\n", packet_counter);
             printf("\n");
             send_RR();
-            return 1;
+            return packet_counter;
         }
     }
 

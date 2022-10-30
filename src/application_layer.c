@@ -39,7 +39,7 @@ LinkLayer getConnectionParams(const char *serialPort, const char *role, int baud
     return connectionParameters;
 }
 
-debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int packet_number){
+debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int *packet_number){
 
     //<------llopen()------>
     if(llopen(connectionParameters) == 1){
@@ -59,7 +59,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
     //<------llwrite()------>
     if(connectionParameters.role == LlTx){
         printf("---------Writing Frames to Reader---------\n");
-        while(i < packet_number && attempts < MAX_ATTEMPTS){
+        while(i < *packet_number && attempts < MAX_ATTEMPTS){
             switch (llwrite(packets[i].content,packets[i].size))
             {
             case 1:
@@ -79,7 +79,10 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
             return ExceededAttempts;
     }
     
+
     //<------llwrite() end------>
+
+
 
     //<------llread()------>
     if(connectionParameters.role == LlRx){
@@ -89,25 +92,25 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
 
         while(disc_received == FALSE && attempts < MAX_ATTEMPTS){
             memset(&packet_buffer[0], 0, sizeof(packet_buffer));
-            switch (llread(packet_buffer))
+            int packet_size = llread(packet_buffer);
+            switch (packet_size)
             {
-                case 1:
-                    packets[i].size = copy_values(packets[i].content, packet_buffer);
-                    i++;
-                    attempts = 0;
-                    break;
                 case -1:
                     attempts++;
                     printf("Did not receive correct packet, retrying (%d/%d)\n",attempts,MAX_ATTEMPTS);
                     break;
-                case 2:
+                case -2:
                     disc_received = TRUE;
                     break;
                 default:
+                    packets[i].size = copy_values(packets[i].content, packet_buffer);
+                    i++;
+                    attempts = 0;
                     break;
             }
         }
-
+        *packet_number = i;
+        printf("packet_number : %d\n",*packet_number);
         if (attempts >= MAX_ATTEMPTS)
             return ExceededAttempts;
     }
@@ -194,7 +197,7 @@ void print_packets(const Packets *packets,int packet_number){
         printf("PACKET %d SIZE : %ld\n",i,packets[i].size);
         printf("    ");
         for(int j = 0; j < packets[i].size; j++){
-            printf("%X ",packets[i].content[j]);
+            printf("%02X ",packets[i].content[j]);
         }
         printf("\n");
     }
@@ -230,7 +233,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
     
     
     //execute linklayer code, with error handling
-    switch (executeLinkLayer(connectionParameters, packets, packet_number))
+    switch (executeLinkLayer(connectionParameters, packets, &packet_number))
     {
         case ConnectionError:
             printf("Could not establish connection with the other program, closing application\n");
