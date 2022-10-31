@@ -18,83 +18,69 @@ int check_state(unsigned char read_char,unsigned char wanted_char, int new_state
 }
 
 //Byte Stuffing of the frame I
-unsigned char *byte_stufffing(unsigned char *frame, unsigned int *length){
-    unsigned char *stuffed_frame = (unsigned char*) malloc((*length)*sizeof(char));
-    
-    unsigned int Length = *length;
+unsigned char *byteStuffing(unsigned char *frame, unsigned int *length) {
+  unsigned char *stuffedFrame = (unsigned char *)malloc(*length);
+  unsigned int finalLength = *length;
 
-    stuffed_frame[0] = frame[0];
-    stuffed_frame[1] = frame[1];
-    stuffed_frame[2] = frame[2];
-    stuffed_frame[3] = frame[3];
+  int i, j = 0;
+  stuffedFrame[j++] = F;
 
-    int j = 4;
-
-    for(int i = 4; i < *length-2; i++){
-        if(frame[i] == F){
-            Length++;
-            stuffed_frame = (unsigned char *) realloc(stuffed_frame, Length);
-            stuffed_frame[j] = ESC;
-            stuffed_frame[++j] = 0x5E;
-            j++;
-            continue;    
-        }
-        else if(frame[i] == ESC){
-            Length++;
-            stuffed_frame = (unsigned char*) realloc(stuffed_frame, Length);
-            stuffed_frame[j] = ESC;
-            stuffed_frame[++j] = 0x5D;
-            j++;
-            continue;
-        }
-        else{
-            stuffed_frame[j] = frame[i];
-            j++;
-        }
+  // excluir FLAG inicial e final
+  for (i = 1; i < *length - 1; i++) {
+    if (frame[i] == F) {
+      stuffedFrame = (unsigned char *)realloc(stuffedFrame, ++finalLength);
+      stuffedFrame[j] = ESC;
+      stuffedFrame[++j] = 0x5E;
+      j++;
+      continue;
+    } else if (frame[i] == ESC) {
+      stuffedFrame = (unsigned char *)realloc(stuffedFrame, ++finalLength);
+      stuffedFrame[j] = ESC;
+      stuffedFrame[++j] = 0x5D;
+      j++;
+      continue;
+    } else {
+      stuffedFrame[j++] = frame[i];
     }
-    
-    stuffed_frame[j] = frame[*length-2];
-    stuffed_frame[++j] = frame[*length-1];
-    *length = Length;
+  }
 
+  stuffedFrame[j] = F;
 
-   return stuffed_frame;
+  *length = finalLength;
+
+  return stuffedFrame;
 }
 
 //Destuffing of the frame I
-unsigned char *byte_Destuffing(unsigned char *stuffed_frame,unsigned int *length){
+unsigned char *byteDestuffing(unsigned char *data, unsigned int *length) {
+  unsigned int finalLength = 0;
+  unsigned char *newData = malloc(finalLength);
 
-    unsigned int Length = 0;
-    unsigned char *destuffed_frame = malloc(Length);
+  int i;
+  for (i = 0; i < *length; i++) {
 
-    for(int i = 0; i < *length; i++){
-        if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5E){
-           Length++; 
-           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
-           destuffed_frame[Length-1] = F;
-           i++;
-           continue;
-        }
-
-        else if(stuffed_frame[i] == ESC && stuffed_frame[i+1] == 0x5D){
-           Length++; 
-           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
-           destuffed_frame[Length-1] = ESC;
-           i++;
-           continue;
-        }
-        else{
-           Length++; 
-           destuffed_frame = (unsigned char *) realloc(destuffed_frame, Length);
-           destuffed_frame[Length-1] = stuffed_frame[i];
-
-        }
+    if (data[i] == ESC) {
+      if (data[i + 1] == 0x5E) {
+        newData = (unsigned char *)realloc(newData, ++finalLength);
+        newData[finalLength - 1] = F;
+        i++;
+        continue;
+      } else if (data[i + 1] == 0x5D) {
+        newData = (unsigned char *)realloc(newData, ++finalLength);
+        newData[finalLength - 1] = ESC;
+        i++;
+        continue;
+      }
     }
-   
-   *length = Length;
 
-  
-  return destuffed_frame;
+    else {
+      newData = (unsigned char *)realloc(newData, ++finalLength);
+      newData[finalLength - 1] = data[i];
+    }
+  }
+
+  *length = finalLength;
+  return newData;
 }
 
 void alarm_read(int signal){
