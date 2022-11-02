@@ -53,7 +53,7 @@ unsigned char *byteStuffing(unsigned char *frame, unsigned int *length) {
 
 //Destuffing of the frame I
 unsigned char *byteDestuffing(unsigned char *data, unsigned int *length) {
-  unsigned int finalLength = 0;
+   unsigned int finalLength = 0;
   unsigned char *newData = malloc(finalLength);
 
   int i;
@@ -328,7 +328,7 @@ int send_I_frame(const unsigned char *buf, int bufSize){
 
 
     //TODO : Change this -> Stuffing should only be done to D1-DN
-    unsigned char *stuffed = byte_stufffing(frameI,&size_frameI);
+    unsigned char *stuffed = byteStuffing(frameI,&size_frameI);
     
     int bytes = write(fd,stuffed,size_frameI);
   
@@ -572,7 +572,7 @@ void checkBCC2(unsigned char *packet,int *I_value, unsigned int packet_counter){
     }
     if(bcc2 != packet[packet_counter-1]){
         *I_value = -1;
-        printf("Invalid BCC2\n");  
+        printf("Invalid BCC2\n"); 
     }
         
 
@@ -603,9 +603,10 @@ int llread(unsigned char *packet){
         if (expected_packet == number_seq){
             printf("Received I(%d) from the transmitter\n",number_seq);
             switch_expected_packet();
+            packet_counter--;
             
             printf("packet_counter (BEFORE) : %d\n", packet_counter);
-            byte_Destuffing(packet,&packet_counter);
+            byteDestuffing(packet,&packet_counter);
             for(int i = 0; i < packet_counter; i++){
                 if(packet[i] != 0) printf("%02X-",packet[i]);
             }
@@ -691,6 +692,7 @@ int llclose(int showStatistics)
         if(disc_received_R == TRUE){
             //Received disc from transmitter
             send_UA_T();
+            sleep(1);
             close_SerialPort();
             return 1;
         }
