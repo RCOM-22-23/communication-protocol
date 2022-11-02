@@ -324,6 +324,7 @@ int send_I_frame(const unsigned char *buf, int bufSize){
     for(int i = 4 ; i < size_frameI-2; i++){
         printf("%02X-",frameI[i]);
     }
+
     printf("\n");
 
 
@@ -521,7 +522,6 @@ int read_I(unsigned char *packet, unsigned int *packet_counter){
                     break;
                 case BCC_I_OK:
                     if(!check_state(read_char,F,STOP,&state)){
-                        //TODO : destuffing
                         packet[*packet_counter] = read_char;
                         (*packet_counter)++;
                     }
@@ -586,6 +586,7 @@ int llread(unsigned char *packet){
     unsigned int packet_counter = 0;
 
     I_value = read_I(packet,&packet_counter);
+    printf("\n");
     //checkBCC2(packet,&I_value);
     if(I_value != -1){
         number_seq = I_value;
@@ -606,11 +607,12 @@ int llread(unsigned char *packet){
             packet_counter--;
             
             printf("packet_counter (BEFORE) : %d\n", packet_counter);
-            byteDestuffing(packet,&packet_counter);
-            for(int i = 0; i < packet_counter; i++){
-                if(packet[i] != 0) printf("%02X-",packet[i]);
-            }
+
+            packet = byteDestuffing(packet,&packet_counter);
             printf("\npacket_counter (AFTER) : %d\n", packet_counter);
+            for(int i = 0; i < packet_counter; i++){
+                printf("%02X-",packet[i]);
+            }
             printf("\n");
             send_RR();
             return packet_counter;

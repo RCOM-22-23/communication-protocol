@@ -87,7 +87,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
     //<------llread()------>
     if(connectionParameters.role == LlRx){
         printf("---------Reading Frames from Writer---------\n");
-        unsigned char packet_buffer[PACKET_SIZE] = {0};
+        unsigned char packet_buffer[PACKET_SIZE*2];
         int disc_received = FALSE;
 
         while(disc_received == FALSE && attempts < MAX_ATTEMPTS){
