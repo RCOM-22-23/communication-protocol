@@ -21,7 +21,7 @@ typedef enum
 
 struct Packets
 {
-    unsigned char content[PACKET_SIZE];
+    unsigned char content[PACKET_SIZE*2];
     size_t size;
 };
 typedef struct Packets Packets;

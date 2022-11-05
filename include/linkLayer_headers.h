@@ -135,6 +135,8 @@ int timeout;
 int number_seq;
 int expected_packet = 0;
 LinkLayerRole role;
+
+FILE *file;
 //<----------GLOBAL VARIABLES END---------->
 
 #endif // _LINK_HEADERS_H_

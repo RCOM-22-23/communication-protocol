@@ -245,7 +245,17 @@ int llopen_transmitter(LinkLayer connectionParameters){
 }
 
 int llopen_reader(LinkLayer connectionParameters){
+
+    //<------Opening File BEGIN------>
+    file = fopen("penguin-received.gif","wb");
+
+    if(file == NULL){
+        exit(-1);
+    }
+
     printf("---------Attempting to establish connection with transmitter---------\n");
+
+
 
     timeout = connectionParameters.timeout;
 
@@ -614,6 +624,7 @@ int llread(unsigned char *packet){
                 printf("%02X-",packet[i]);
             }
             printf("\n");
+            fwrite(packet,sizeof(unsigned char),packet_counter,file);
             send_RR();
             return packet_counter;
         }
@@ -705,6 +716,7 @@ int llclose(int showStatistics)
     }
     //Receiver
     else if(role == LlRx){
+        fclose(file);
         printf("---------Disconnecting from transmitter---------\n");
 
         printf("Received DISC from transmitter\n");

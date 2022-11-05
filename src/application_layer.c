@@ -7,13 +7,10 @@
 
 
 
-int copy_values(unsigned char *destination, const unsigned char *source){
-    int i = 0;
-    while(source[i] != '\0' || i <= PACKET_SIZE){
+void copy_values(unsigned char *destination, const unsigned char *source, int packet_counter){
+    for(int i = 0; i < packet_counter; i++){
         destination[i] = source[i];
-        i++;
     }
-    return i;
 }
 
 LinkLayerRole getRole(const char *role){
@@ -91,7 +88,7 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
         int disc_received = FALSE;
 
         while(disc_received == FALSE && attempts < MAX_ATTEMPTS){
-            memset(&packet_buffer[0], 0, sizeof(packet_buffer));
+            memset(&packet_buffer[0], 0, PACKET_SIZE*2);
             int packet_size = llread(packet_buffer);
             switch (packet_size)
             {
@@ -103,7 +100,11 @@ debugType executeLinkLayer(LinkLayer connectionParameters, Packets *packets, int
                     disc_received = TRUE;
                     break;
                 default:
-                    packets[i].size = copy_values(packets[i].content, packet_buffer);
+                 
+                    packets[i].size = packet_size;
+                    copy_values(packets[i].content, packet_buffer, packet_size);
+
+                   
                     i++;
                     attempts = 0;
                     break;
@@ -258,6 +259,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             break;
     }
 
+    /*
     //Writing to file, if role is receiver
     if(connectionParameters.role == LlRx){
         switch (writePackage(packets,packet_number,filename))
@@ -275,6 +277,6 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 break;
         }
     }
-    
-    free(packets);
+    */
+    //free(packets);
 }
