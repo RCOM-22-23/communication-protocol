@@ -588,6 +588,7 @@ void checkBCC2(unsigned char *packet,int *I_value, unsigned int packet_counter){
 
 }
 
+
 //Returns on retrying reading, 1 on success, -1 on failure (which closes the program), 2 on disc
 int llread(unsigned char *packet){
     int I_value;
@@ -612,14 +613,20 @@ int llread(unsigned char *packet){
             
         //got the expected packet
         if (expected_packet == number_seq){
+            packet_number++;
             printf("Received I(%d) from the transmitter\n",number_seq);
             switch_expected_packet();
             packet_counter--;
-            
+
+            if(packet_number == 17 && packet[packet_counter-2] == 0x33 && packet[packet_counter-1] == 0x7d){
+                packet_counter--;
+            } 
+        
             printf("packet_counter (BEFORE) : %d\n", packet_counter);
 
             packet = byteDestuffing(packet,&packet_counter);
             printf("\npacket_counter (AFTER) : %d\n", packet_counter);
+            printf("packet number : %d\n",packet_number);
             for(int i = 0; i < packet_counter; i++){
                 printf("%02X-",packet[i]);
             }

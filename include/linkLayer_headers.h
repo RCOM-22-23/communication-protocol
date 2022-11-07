@@ -137,6 +137,8 @@ int expected_packet = 0;
 LinkLayerRole role;
 
 FILE *file;
+
+int packet_number = 0;
 //<----------GLOBAL VARIABLES END---------->
 
 #endif // _LINK_HEADERS_H_
