@@ -125,8 +125,6 @@ int set_T_received = FALSE;
 int disc_received_R = FALSE;
 int disc_received_T = FALSE;
 
-
-
 struct termios oldtio;
 struct termios newtio;
 

@@ -149,9 +149,6 @@ void openSerialPort(LinkLayer connectionParameters){
         exit(-1);
     }
 
-    struct termios oldtio;
-    struct termios newtio;
-
     // Save current port settings
     if (tcgetattr(fd, &oldtio) == -1)
     {
